@@ -1,0 +1,14 @@
+name: ltmvr
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.11
+  - pip
+  - setuptools
+  - wheel
+  - pytest>=8
+  - pyserial>=3.5
+  - pip:
+      - -e .
+      - RPi.GPIO>=0.7.1
