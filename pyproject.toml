@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rpi5-vr-task"
+version = "0.1.0"
+description = "RPi5 real-time VR behavioral task controller"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [
+  {name = "LTM Task"}
+]
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["rpi5_controller/tests"]
+pythonpath = ["."]

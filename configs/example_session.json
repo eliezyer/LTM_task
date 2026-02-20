@@ -1,0 +1,36 @@
+{
+  "airpuff_contexts": [2],
+  "airpuff_duration_ms": 50,
+  "animal_id": "example_mouse",
+  "context_zone_length_cm": 120.0,
+  "encoder_cpr": 1024,
+  "iti_distribution": {
+    "kind": "uniform",
+    "max_s": 4.0,
+    "mean_s": 3.0,
+    "min_s": 2.0
+  },
+  "num_trials": 50,
+  "opening_corridor_length_cm": 60.0,
+  "output_final_dir": "logs",
+  "output_tmp_dir": "/tmp/bhv_log",
+  "reward_ms_by_context": {
+    "1": 30,
+    "2": 0,
+    "3": 30
+  },
+  "reward_zone_position_cm": 100.0,
+  "rt_hz": 1000,
+  "seed": null,
+  "serial_baud": 1000000,
+  "serial_port": "/dev/serial0",
+  "session_type": "training",
+  "speed_alpha": 0.2,
+  "speed_threshold_cm_s": 1.0,
+  "stall_timeout_s": 3.0,
+  "ttl_pulse_width_ms": 5,
+  "ttl_train_gap_ms": 10,
+  "udp_target_ip": "192.168.10.2",
+  "udp_target_port": 5005,
+  "wheel_diameter_cm": 20.0
+}

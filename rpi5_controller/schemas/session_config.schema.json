@@ -1,0 +1,137 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.org/rpi5-vr-task/session_config.schema.json",
+  "title": "SessionConfig",
+  "type": "object",
+  "required": [
+    "animal_id",
+    "session_type",
+    "num_trials",
+    "reward_ms_by_context",
+    "airpuff_contexts",
+    "airpuff_duration_ms",
+    "iti_distribution",
+    "speed_threshold_cm_s",
+    "stall_timeout_s",
+    "opening_corridor_length_cm",
+    "context_zone_length_cm",
+    "reward_zone_position_cm",
+    "wheel_diameter_cm",
+    "encoder_cpr"
+  ],
+  "properties": {
+    "animal_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "session_type": {
+      "type": "string",
+      "enum": ["training", "retrieval", "retraining"]
+    },
+    "num_trials": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "reward_ms_by_context": {
+      "type": "object",
+      "required": ["1", "2", "3"],
+      "additionalProperties": false,
+      "properties": {
+        "1": {"type": "integer", "minimum": 0},
+        "2": {"type": "integer", "minimum": 0},
+        "3": {"type": "integer", "minimum": 0}
+      }
+    },
+    "airpuff_contexts": {
+      "type": "array",
+      "items": {"type": "integer", "enum": [1, 2, 3]},
+      "uniqueItems": true
+    },
+    "airpuff_duration_ms": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "iti_distribution": {
+      "type": "object",
+      "required": ["kind", "min_s", "max_s", "mean_s"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["uniform", "truncated_exponential"]
+        },
+        "min_s": {"type": "number", "exclusiveMinimum": 0},
+        "max_s": {"type": "number", "exclusiveMinimum": 0},
+        "mean_s": {"type": "number", "exclusiveMinimum": 0}
+      }
+    },
+    "speed_threshold_cm_s": {
+      "type": "number",
+      "minimum": 0
+    },
+    "stall_timeout_s": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "opening_corridor_length_cm": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "context_zone_length_cm": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "reward_zone_position_cm": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "wheel_diameter_cm": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "encoder_cpr": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "speed_alpha": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "maximum": 1
+    },
+    "udp_target_ip": {
+      "type": "string"
+    },
+    "udp_target_port": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 65535
+    },
+    "serial_port": {
+      "type": "string"
+    },
+    "serial_baud": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "rt_hz": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "ttl_pulse_width_ms": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "ttl_train_gap_ms": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "output_tmp_dir": {
+      "type": "string"
+    },
+    "output_final_dir": {
+      "type": "string"
+    },
+    "seed": {
+      "type": ["integer", "null"]
+    }
+  }
+}
