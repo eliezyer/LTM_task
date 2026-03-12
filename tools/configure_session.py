@@ -8,6 +8,11 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+if __package__ is None or __package__ == "":
+    _repo_root = Path(__file__).resolve().parents[1]
+    if str(_repo_root) not in sys.path:
+        sys.path.insert(0, str(_repo_root))
+
 from rpi5_controller.core.config import SessionConfig, write_session_config
 from rpi5_controller.core.enums import SessionType
 
