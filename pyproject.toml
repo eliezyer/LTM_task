@@ -18,6 +18,12 @@ dev = [
   "pytest>=8.0.0",
 ]
 
+[tool.setuptools.packages.find]
+include = ["rpi5_controller*"]
+
+[tool.setuptools.package-data]
+rpi5_controller = ["schemas/*.json"]
+
 [tool.pytest.ini_options]
 testpaths = ["rpi5_controller/tests"]
 pythonpath = ["."]
