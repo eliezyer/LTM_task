@@ -10,19 +10,25 @@ class WavTriggerController:
     gpio: GPIOBackend
     context_pin_map: dict[int, int]
     active_context: int | None = None
+    _is_setup: bool = False
 
     def setup(self) -> None:
         for pin in self.context_pin_map.values():
             self.gpio.setup_output(pin)
             self.gpio.write(pin, 0)
+        self._is_setup = True
 
     def start_context(self, context_id: int) -> None:
+        if not self._is_setup:
+            raise RuntimeError("WAV trigger GPIO has not been initialized")
         self.stop_all()
         pin = self.context_pin_map[context_id]
         self.gpio.write(pin, 1)
         self.active_context = context_id
 
     def stop_all(self) -> None:
+        if not self._is_setup:
+            return
         for pin in self.context_pin_map.values():
             self.gpio.write(pin, 0)
         self.active_context = None

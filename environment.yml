@@ -11,4 +11,4 @@ dependencies:
   - pyserial>=3.5
   - pip:
       - -e .
-      - RPi.GPIO>=0.7.1
+      - rpi-lgpio>=0.6

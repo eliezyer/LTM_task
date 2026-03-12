@@ -3,6 +3,7 @@
 ## 1. OS and Kernel
 
 - Install Raspberry Pi OS with PREEMPT_RT kernel.
+- Use the `rpi-lgpio` package for GPIO access on Raspberry Pi 5; legacy `RPi.GPIO` may fail with `Cannot determine SOC peripheral base address`.
 - Validate jitter target with `cyclictest` before experiments.
 
 ## 2. CPU Isolation and Priority
