@@ -52,7 +52,10 @@ class HardwareCommandExecutor:
     def execute(self, commands: list[Command], now_s: float) -> CommandExecutionResult:
         result = CommandExecutionResult()
         for command in commands:
-            if command.type == CommandType.AUDIO_START_CONTEXT:
+            if command.type == CommandType.AUDIO_START_TRIAL_AVAILABLE:
+                self.audio.start_trial_available()
+
+            elif command.type == CommandType.AUDIO_START_CONTEXT:
                 if command.context_id is None:
                     raise ValueError("AUDIO_START_CONTEXT requires context_id")
                 self.audio.start_context(command.context_id)

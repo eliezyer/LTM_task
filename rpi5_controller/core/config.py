@@ -41,9 +41,10 @@ class PinMap:
     uart_rx: int = 15
     water_solenoid: int = 4
     air_solenoid: int = 5
-    wav_context_1: int = 6
-    wav_context_2: int = 7
-    wav_context_3: int = 8
+    wav_trial_available: int = 6
+    wav_context_1: int = 7
+    wav_context_2: int = 8
+    wav_context_3: int = 13
     lick_input: int = 9
     ttl_trial_start: int = 17
     ttl_context_identity: int = 18
@@ -149,6 +150,12 @@ class SessionConfig:
 
     def validate(self) -> None:
         contexts = {1, 2, 3}
+        audio_pins = {
+            self.pinmap.wav_trial_available,
+            self.pinmap.wav_context_1,
+            self.pinmap.wav_context_2,
+            self.pinmap.wav_context_3,
+        }
 
         if not self.animal_id:
             raise ValueError("animal_id must not be empty")
@@ -189,6 +196,11 @@ class SessionConfig:
         invalid_airpuff = set(self.airpuff_contexts) - contexts
         if invalid_airpuff:
             raise ValueError(f"airpuff_contexts include invalid IDs: {invalid_airpuff}")
+        if len(audio_pins) != 4:
+            raise ValueError(
+                "WAV trigger outputs must use four distinct BCM pins: "
+                "trial_available, context 1, context 2, context 3"
+            )
 
         self.iti_distribution.validate()
 

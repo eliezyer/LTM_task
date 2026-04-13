@@ -31,4 +31,6 @@ def test_hardware_bringup_script_mock_mode() -> None:
     )
 
     assert completed.returncode == 0, completed.stdout + "\n" + completed.stderr
+    assert "Audio Trial Available" in completed.stdout
+    assert "Audio Context 3" in completed.stdout
     assert "Summary" in completed.stdout

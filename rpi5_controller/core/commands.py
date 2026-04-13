@@ -7,6 +7,7 @@ from enum import Enum
 class CommandType(str, Enum):
     RESET_SEGMENT = "reset_segment"
     TELEPORT = "teleport"
+    AUDIO_START_TRIAL_AVAILABLE = "audio_start_trial_available"
     AUDIO_START_CONTEXT = "audio_start_context"
     AUDIO_STOP_ALL = "audio_stop_all"
     SOLENOID_REWARD = "solenoid_reward"

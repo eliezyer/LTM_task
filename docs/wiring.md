@@ -14,9 +14,10 @@
 
 ## WAV Trigger Pro
 
-- RPi5 GPIO 6 -> Context 1 trigger
-- RPi5 GPIO 7 -> Context 2 trigger
-- RPi5 GPIO 8 -> Context 3 trigger
+- RPi5 GPIO 6 -> WAV channel 1 trial-available trigger
+- RPi5 GPIO 7 -> WAV channel 2 context 1 trigger
+- RPi5 GPIO 8 -> WAV channel 3 context 2 trigger
+- RPi5 GPIO 13 -> WAV channel 4 context 3 trigger
 
 ## Lick Detector
 

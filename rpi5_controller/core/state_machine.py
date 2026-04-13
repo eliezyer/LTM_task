@@ -147,6 +147,7 @@ class BehaviorStateMachine:
         commands.append(Command(type=CommandType.RESET_SEGMENT))
         commands.append(Command(type=CommandType.TELEPORT))
         commands.append(Command(type=CommandType.TTL_PULSE, ttl_event=TTLEvent.TRIAL_START))
+        commands.append(Command(type=CommandType.AUDIO_START_TRIAL_AVAILABLE))
 
     def _enter_context_zone(self, commands: list[Command]) -> None:
         self.state = BehaviorState.CONTEXT_ZONE

@@ -132,6 +132,28 @@
     },
     "seed": {
       "type": ["integer", "null"]
+    },
+    "pinmap": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "uart_tx": {"type": "integer", "minimum": 0},
+        "uart_rx": {"type": "integer", "minimum": 0},
+        "water_solenoid": {"type": "integer", "minimum": 0},
+        "air_solenoid": {"type": "integer", "minimum": 0},
+        "wav_trial_available": {"type": "integer", "minimum": 0},
+        "wav_context_1": {"type": "integer", "minimum": 0},
+        "wav_context_2": {"type": "integer", "minimum": 0},
+        "wav_context_3": {"type": "integer", "minimum": 0},
+        "lick_input": {"type": "integer", "minimum": 0},
+        "ttl_trial_start": {"type": "integer", "minimum": 0},
+        "ttl_context_identity": {"type": "integer", "minimum": 0},
+        "ttl_context_entry": {"type": "integer", "minimum": 0},
+        "ttl_reward": {"type": "integer", "minimum": 0},
+        "ttl_airpuff": {"type": "integer", "minimum": 0},
+        "ttl_lick": {"type": "integer", "minimum": 0},
+        "ttl_iti_start": {"type": "integer", "minimum": 0}
+      }
     }
   }
 }

@@ -21,6 +21,7 @@ def test_start_session_enters_opening(base_config: SessionConfig) -> None:
     assert output.state == BehaviorState.OPENING_CORRIDOR
     assert _has_ttl(output.commands, TTLEvent.TRIAL_START)
     assert _has_command(output.commands, CommandType.RESET_SEGMENT)
+    assert _has_command(output.commands, CommandType.AUDIO_START_TRIAL_AVAILABLE)
 
 
 def test_opening_to_context_transition(base_config: SessionConfig) -> None:

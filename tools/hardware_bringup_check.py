@@ -54,6 +54,7 @@ class HardwareBringUpChecklist:
         self.scheduler = PulseScheduler(self.gpio)
         self.audio = WavTriggerController(
             gpio=self.gpio,
+            trial_available_pin=self.config.pinmap.wav_trial_available,
             context_pin_map={
                 1: self.config.pinmap.wav_context_1,
                 2: self.config.pinmap.wav_context_2,
@@ -159,23 +160,46 @@ class HardwareBringUpChecklist:
 
     def _run_audio_checks(self) -> None:
         print("\n[Audio trigger checks]")
+        print(
+            f"Triggering WAV trial-available cue (BCM pin {self.audio.trial_available_pin}) "
+            f"for {self.audio_test_seconds:.1f} s"
+        )
+        self.audio.start_trial_available()
+        time.sleep(self.audio_test_seconds)
+        self.audio.stop_all()
+
+        observed = self._prompt_yes_no(
+            "Did the trial-available audio trigger on WAV channel 1 and stop as expected?",
+            default=True,
+        )
+        self._record(
+            name="Audio Trial Available",
+            status="PASS" if observed else "FAIL",
+            detail=f"WAV channel 1, BCM {self.audio.trial_available_pin}",
+        )
+
         for context_id in (1, 2, 3):
+            wav_channel = context_id + 1
             print(
-                f"Triggering WAV context {context_id} (BCM pin "
-                f"{self.audio.context_pin_map[context_id]}) for {self.audio_test_seconds:.1f} s"
+                f"Triggering WAV context {context_id} cue on channel {wav_channel} "
+                f"(BCM pin {self.audio.context_pin_map[context_id]}) "
+                f"for {self.audio_test_seconds:.1f} s"
             )
             self.audio.start_context(context_id)
             time.sleep(self.audio_test_seconds)
             self.audio.stop_all()
 
             observed = self._prompt_yes_no(
-                f"Did context {context_id} audio trigger and stop as expected?",
+                f"Did context {context_id} audio trigger on WAV channel {wav_channel} "
+                "and stop as expected?",
                 default=True,
             )
             self._record(
                 name=f"Audio Context {context_id}",
                 status="PASS" if observed else "FAIL",
-                detail=f"BCM {self.audio.context_pin_map[context_id]}",
+                detail=(
+                    f"WAV channel {wav_channel}, BCM {self.audio.context_pin_map[context_id]}"
+                ),
             )
 
     def _run_solenoid_checks(self) -> None:

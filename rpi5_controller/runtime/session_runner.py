@@ -82,6 +82,7 @@ class BehaviorSessionRunner:
 
         self._audio = WavTriggerController(
             gpio=self._gpio,
+            trial_available_pin=config.pinmap.wav_trial_available,
             context_pin_map={
                 1: config.pinmap.wav_context_1,
                 2: config.pinmap.wav_context_2,
