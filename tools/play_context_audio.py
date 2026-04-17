@@ -18,13 +18,19 @@ from rpi5_controller.hardware.gpio import GPIOBackend, MockGPIOBackend, RPiGPIOB
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Play one context audio trigger for a fixed duration"
+        description="Play one WAV trigger audio cue for a fixed duration"
     )
     parser.add_argument(
         "context_id",
         type=int,
+        nargs="?",
         choices=(1, 2, 3),
         help="Context number to trigger",
+    )
+    parser.add_argument(
+        "--trial-available",
+        action="store_true",
+        help="Trigger the trial-available cue instead of a context cue",
     )
     parser.add_argument(
         "--config",
@@ -68,20 +74,32 @@ def build_audio_controller(config: SessionConfig, *, mock_hardware: bool) -> tup
 
 def main() -> None:
     args = build_parser().parse_args()
+    if args.trial_available and args.context_id is not None:
+        raise SystemExit("Choose either a context_id or --trial-available, not both.")
+    if not args.trial_available and args.context_id is None:
+        raise SystemExit("Provide a context_id or use --trial-available.")
+
     config = load_config(args.config)
     gpio, audio = build_audio_controller(config, mock_hardware=args.mock_hardware)
 
-    wav_channel = args.context_id + 1
-    bcm_pin = audio.context_pin_map[args.context_id]
-
-    print(
-        f"Playing context {args.context_id} on WAV channel {wav_channel} "
-        f"(BCM pin {bcm_pin}) for {args.seconds:.1f} s"
-    )
-
     try:
         audio.setup()
-        audio.start_context(args.context_id)
+
+        if args.trial_available:
+            print(
+                f"Playing trial-available on WAV channel 1 "
+                f"(BCM pin {audio.trial_available_pin}) for {args.seconds:.1f} s"
+            )
+            audio.start_trial_available()
+        else:
+            wav_channel = args.context_id + 1
+            bcm_pin = audio.context_pin_map[args.context_id]
+            print(
+                f"Playing context {args.context_id} on WAV channel {wav_channel} "
+                f"(BCM pin {bcm_pin}) for {args.seconds:.1f} s"
+            )
+            audio.start_context(args.context_id)
+
         time.sleep(max(0.0, args.seconds))
         audio.stop_all()
     finally:
