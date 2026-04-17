@@ -5,7 +5,7 @@ from typing import Protocol
 
 
 class GPIOBackend(Protocol):
-    def setup_output(self, pin: int) -> None: ...
+    def setup_output(self, pin: int, initial: int = 0) -> None: ...
 
     def setup_input(self, pin: int) -> None: ...
 
@@ -21,9 +21,9 @@ class MockGPIOBackend:
     pin_modes: dict[int, str] = field(default_factory=dict)
     pin_values: dict[int, int] = field(default_factory=dict)
 
-    def setup_output(self, pin: int) -> None:
+    def setup_output(self, pin: int, initial: int = 0) -> None:
         self.pin_modes[pin] = "out"
-        self.pin_values.setdefault(pin, 0)
+        self.pin_values[pin] = 1 if initial else 0
 
     def setup_input(self, pin: int) -> None:
         self.pin_modes[pin] = "in"
@@ -61,8 +61,9 @@ class RPiGPIOBackend:
         self._call(self._gpio.setwarnings, False)
         self._call(self._gpio.setmode, self._gpio.BCM)
 
-    def setup_output(self, pin: int) -> None:
-        self._call(self._gpio.setup, pin, self._gpio.OUT, initial=self._gpio.LOW)
+    def setup_output(self, pin: int, initial: int = 0) -> None:
+        initial_level = self._gpio.HIGH if initial else self._gpio.LOW
+        self._call(self._gpio.setup, pin, self._gpio.OUT, initial=initial_level)
 
     def setup_input(self, pin: int) -> None:
         self._call(self._gpio.setup, pin, self._gpio.IN)

@@ -33,6 +33,19 @@ def test_start_context_requires_setup() -> None:
         audio.start_context(1)
 
 
+def test_setup_idles_all_audio_pins_high() -> None:
+    gpio = MockGPIOBackend()
+    audio = WavTriggerController(
+        gpio=gpio,
+        trial_available_pin=6,
+        context_pin_map={1: 7, 2: 8, 3: 13},
+    )
+
+    audio.setup()
+
+    assert gpio.pin_values == {6: 1, 7: 1, 8: 1, 13: 1}
+
+
 def test_trial_available_switches_to_context_cue() -> None:
     gpio = MockGPIOBackend()
     audio = WavTriggerController(
@@ -44,13 +57,24 @@ def test_trial_available_switches_to_context_cue() -> None:
     audio.setup()
     audio.start_trial_available()
 
-    assert gpio.pin_values[6] == 1
+    assert gpio.pin_values[6] == 0
+    assert gpio.pin_values[7] == 1
+    assert gpio.pin_values[8] == 1
+    assert gpio.pin_values[13] == 1
     assert audio.trial_available_active
     assert audio.active_context is None
 
     audio.start_context(2)
 
-    assert gpio.pin_values[6] == 0
-    assert gpio.pin_values[8] == 1
+    assert gpio.pin_values[6] == 1
+    assert gpio.pin_values[7] == 1
+    assert gpio.pin_values[8] == 0
+    assert gpio.pin_values[13] == 1
     assert not audio.trial_available_active
     assert audio.active_context == 2
+
+    audio.stop_all()
+
+    assert gpio.pin_values == {6: 1, 7: 1, 8: 1, 13: 1}
+    assert audio.active_context is None
+    assert not audio.trial_available_active

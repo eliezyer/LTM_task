@@ -36,6 +36,7 @@ rpi5_controller/tests/test_gpio_backend.py
 rpi5_controller/tests/test_hardware_bringup_script.py
 rpi5_controller/tests/test_iti.py
 rpi5_controller/tests/test_packets.py
+rpi5_controller/tests/test_play_context_audio_script.py
 rpi5_controller/tests/test_pulse_scheduler.py
 rpi5_controller/tests/test_randomization.py
 rpi5_controller/tests/test_session_runner.py

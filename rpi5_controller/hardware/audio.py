@@ -16,15 +16,15 @@ class WavTriggerController:
 
     def setup(self) -> None:
         for pin in self._all_pins():
-            self.gpio.setup_output(pin)
-            self.gpio.write(pin, 0)
+            # WAV Trigger Pro inputs are active-low, so keep every line idle-high.
+            self.gpio.setup_output(pin, initial=1)
         self._is_setup = True
 
     def start_trial_available(self) -> None:
         if not self._is_setup:
             raise RuntimeError("WAV trigger GPIO has not been initialized")
         self.stop_all()
-        self.gpio.write(self.trial_available_pin, 1)
+        self.gpio.write(self.trial_available_pin, 0)
         self.active_context = None
         self.trial_available_active = True
 
@@ -33,7 +33,7 @@ class WavTriggerController:
             raise RuntimeError("WAV trigger GPIO has not been initialized")
         self.stop_all()
         pin = self.context_pin_map[context_id]
-        self.gpio.write(pin, 1)
+        self.gpio.write(pin, 0)
         self.active_context = context_id
         self.trial_available_active = False
 
@@ -41,7 +41,7 @@ class WavTriggerController:
         if not self._is_setup:
             return
         for pin in self._all_pins():
-            self.gpio.write(pin, 0)
+            self.gpio.write(pin, 1)
         self.trial_available_active = False
         self.active_context = None
 
