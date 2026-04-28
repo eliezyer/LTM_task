@@ -83,11 +83,9 @@ class BehaviorSessionRunner:
         self._audio = WavTriggerController(
             gpio=self._gpio,
             trial_available_pin=config.pinmap.wav_trial_available,
-            context_pin_map={
-                1: config.pinmap.wav_context_1,
-                2: config.pinmap.wav_context_2,
-                3: config.pinmap.wav_context_3,
-            },
+            context_pin_map=config.context_audio_pin_map,
+            cue_pin_map=config.audio_cue_pin_map,
+            context_cue_map=config.context_audio_cue_map,
         )
         self._pulse_scheduler = PulseScheduler(self._gpio)
         self._executor = HardwareCommandExecutor(

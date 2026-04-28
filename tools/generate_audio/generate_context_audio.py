@@ -11,11 +11,13 @@ Outputs:
 - one file per AM rate in AM mode
 - optional plain carrier file
 - optional unmodulated white-noise file matched in RMS level to the AM contexts
+- optional WAV Trigger Pro track files (`001.wav`-`004.wav`)
 
 Default use case:
 - band-limited-ish carrier approximation via summed sine tones around a center frequency
 - slow AM rates suitable for context cues
 - level control via modulation trough in dB (e.g. 0 dB peak, -5 dB trough)
+- generated files default to 44.1 kHz for WAV Trigger Pro compatibility
 """
 
 from __future__ import annotations
@@ -32,14 +34,15 @@ from typing import List
 @dataclass
 class Config:
     # ---------- user-facing parameters ----------
-    sample_rate: int = 96_000
+    # WAV Trigger Pro accepts 16-bit 44.1 kHz mono/stereo WAV files.
+    sample_rate: int = 44_100
     duration_s: float = 2.0
 
     # Carrier options:
     # mode = "tone"            -> single sine carrier at carrier_hz
     # mode = "tone_complex"    -> sum of nearby tones around carrier_hz
-    mode: str = "tone_complex"
-    carrier_hz: float = 15_000.0
+    mode: str = "tone"
+    carrier_hz: float = 12_000.0
 
     # For tone_complex mode only. Frequencies are distributed inside this band.
     band_low_hz: float = 12_000.0
@@ -69,6 +72,11 @@ class Config:
     # clicks at onset/offset.
     write_white_noise_context: bool = True
     white_noise_filename: str = "context_white_noise.wav"
+
+    # Whether to also write WAV Trigger Pro track-numbered files that match
+    # the trigger-to-track mapping in generated_audio/set_0001.csv:
+    # 001 = trial-available/plain carrier, 002-004 = contexts 1-3.
+    write_wav_trigger_tracks: bool = True
 
     # Output directory.
     out_dir: str = "generated_audio"
@@ -209,6 +217,12 @@ def write_wav(path: str, pcm_bytes: bytes, sample_rate: int) -> None:
         wf.writeframes(pcm_bytes)
 
 
+def wav_trigger_track_filename(track_number: int) -> str:
+    if track_number < 1:
+        raise ValueError("track_number must be >= 1")
+    return f"{track_number:03d}.wav"
+
+
 def describe_config(cfg: Config) -> str:
     lines = [
         "Audio generation complete.",
@@ -226,18 +240,27 @@ def describe_config(cfg: Config) -> str:
         f"ramp_ms={cfg.ramp_ms}",
         f"write_white_noise_context={cfg.write_white_noise_context}",
         f"white_noise_filename={cfg.white_noise_filename}",
+        f"write_wav_trigger_tracks={cfg.write_wav_trigger_tracks}",
         f"out_dir={cfg.out_dir}",
     ]
     return "\n".join(lines)
 
 
-def main() -> None:
-    cfg = Config()
+def generate_audio_files(cfg: Config) -> list[str]:
     os.makedirs(cfg.out_dir, exist_ok=True)
+    written_paths: list[str] = []
 
     if cfg.write_plain_carrier:
         pcm = render_wave(cfg, am_rate_hz=None)
-        write_wav(os.path.join(cfg.out_dir, "carrier_plain.wav"), pcm, cfg.sample_rate)
+        carrier_path = os.path.join(cfg.out_dir, "carrier_plain.wav")
+        write_wav(carrier_path, pcm, cfg.sample_rate)
+        written_paths.append(carrier_path)
+        if cfg.write_wav_trigger_tracks:
+            wav_trigger_path = os.path.join(
+                cfg.out_dir, wav_trigger_track_filename(1)
+            )
+            write_wav(wav_trigger_path, pcm, cfg.sample_rate)
+            written_paths.append(wav_trigger_path)
 
     reference_rate = cfg.am_rates_hz[0] if cfg.am_rates_hz else None
     reference_samples = render_am_samples(cfg, am_rate_hz=reference_rate)
@@ -245,16 +268,22 @@ def main() -> None:
     for idx, rate in enumerate(cfg.am_rates_hz, start=1):
         pcm = samples_to_pcm(render_am_samples(cfg, am_rate_hz=rate))
         fname = f"context_{idx}_AM_{str(rate).replace('.', 'p')}Hz.wav"
-        write_wav(os.path.join(cfg.out_dir, fname), pcm, cfg.sample_rate)
+        context_path = os.path.join(cfg.out_dir, fname)
+        write_wav(context_path, pcm, cfg.sample_rate)
+        written_paths.append(context_path)
+        if cfg.write_wav_trigger_tracks:
+            wav_trigger_path = os.path.join(
+                cfg.out_dir, wav_trigger_track_filename(idx + 1)
+            )
+            write_wav(wav_trigger_path, pcm, cfg.sample_rate)
+            written_paths.append(wav_trigger_path)
 
     if cfg.write_white_noise_context:
         target_rms = rms(reference_samples)
         white_noise = render_white_noise_samples(cfg, target_rms=target_rms)
-        write_wav(
-            os.path.join(cfg.out_dir, cfg.white_noise_filename),
-            samples_to_pcm(white_noise),
-            cfg.sample_rate,
-        )
+        white_noise_path = os.path.join(cfg.out_dir, cfg.white_noise_filename)
+        write_wav(white_noise_path, samples_to_pcm(white_noise), cfg.sample_rate)
+        written_paths.append(white_noise_path)
 
     readme_path = os.path.join(cfg.out_dir, "README_generated.txt")
     with open(readme_path, "w", encoding="utf-8") as f:
@@ -264,7 +293,17 @@ def main() -> None:
         f.write("- This script uses only the Python standard library.\n")
         f.write("- tone_complex approximates a narrow-band carrier without numpy/scipy.\n")
         f.write("- White noise is not amplitude modulated; it is RMS-matched to the first AM context.\n")
+        f.write("- Default sample rate is 44.1 kHz for WAV Trigger Pro compatibility.\n")
+        f.write("- If write_wav_trigger_tracks is enabled, 001.wav is the plain carrier and 002-004.wav are contexts 1-3.\n")
         f.write("- Verify actual acoustic output in the chamber with your speaker/mic chain.\n")
+    written_paths.append(readme_path)
+
+    return written_paths
+
+
+def main() -> None:
+    cfg = Config()
+    generate_audio_files(cfg)
 
     print(describe_config(cfg))
 

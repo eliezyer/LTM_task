@@ -55,11 +55,9 @@ class HardwareBringUpChecklist:
         self.audio = WavTriggerController(
             gpio=self.gpio,
             trial_available_pin=self.config.pinmap.wav_trial_available,
-            context_pin_map={
-                1: self.config.pinmap.wav_context_1,
-                2: self.config.pinmap.wav_context_2,
-                3: self.config.pinmap.wav_context_3,
-            },
+            context_pin_map=self.config.context_audio_pin_map,
+            cue_pin_map=self.config.audio_cue_pin_map,
+            context_cue_map=self.config.context_audio_cue_map,
         )
         self.lick = LickDetector(self.gpio, self.config.pinmap.lick_input)
 
@@ -129,8 +127,10 @@ class HardwareBringUpChecklist:
                 confirmation_prompt=f"Observed {name} pulse on NI/scope?",
             )
 
-        print("Testing context identity pulse train on DI1 (1, 2, 3 pulses).")
-        for pulse_count in (1, 2, 3):
+        print("Testing context identity pulse train on DI1.")
+        for context_id in self.config.context_ids:
+            context = self.config.context_config(context_id)
+            pulse_count = context.identity_pulses
             now_s = time.monotonic()
             self.scheduler.schedule_pulse_train(
                 pin=pinmap.ttl_context_identity,
@@ -146,11 +146,12 @@ class HardwareBringUpChecklist:
             self._service_scheduler_for((total_ms / 1000.0) + 0.05)
 
             observed = self._prompt_yes_no(
-                f"Observed context identity train with {pulse_count} pulses on DI1?",
+                f"Observed context {context_id} identity train "
+                f"with {pulse_count} pulses on DI1?",
                 default=True,
             )
             self._record(
-                name=f"TTL Context Identity ({pulse_count} pulses)",
+                name=f"TTL Context {context_id} Identity ({pulse_count} pulses)",
                 status="PASS" if observed else "FAIL",
                 detail=(
                     f"BCM {pinmap.ttl_context_identity}, width={self.config.ttl_pulse_width_ms} ms, "
@@ -178,10 +179,10 @@ class HardwareBringUpChecklist:
             detail=f"WAV channel 1, BCM {self.audio.trial_available_pin}",
         )
 
-        for context_id in (1, 2, 3):
-            wav_channel = context_id + 1
+        for context_id in self.config.context_ids:
+            context = self.config.context_config(context_id)
             print(
-                f"Triggering WAV context {context_id} cue on channel {wav_channel} "
+                f"Triggering WAV context {context_id} cue {context.audio_cue} "
                 f"(BCM pin {self.audio.context_pin_map[context_id]}) "
                 f"for {self.audio_test_seconds:.1f} s"
             )
@@ -190,7 +191,7 @@ class HardwareBringUpChecklist:
             self.audio.stop_all()
 
             observed = self._prompt_yes_no(
-                f"Did context {context_id} audio trigger on WAV channel {wav_channel} "
+                f"Did context {context_id} audio cue {context.audio_cue} trigger "
                 "and stop as expected?",
                 default=True,
             )
@@ -198,7 +199,7 @@ class HardwareBringUpChecklist:
                 name=f"Audio Context {context_id}",
                 status="PASS" if observed else "FAIL",
                 detail=(
-                    f"WAV channel {wav_channel}, BCM {self.audio.context_pin_map[context_id]}"
+                    f"cue {context.audio_cue}, BCM {self.audio.context_pin_map[context_id]}"
                 ),
             )
 
@@ -219,8 +220,14 @@ class HardwareBringUpChecklist:
             )
             return
 
-        reward_duration_ms = max(self.config.reward_ms_by_context.values())
+        reward_duration_ms = max(
+            context.reward_ms for context in self.config.contexts.values()
+        )
         reward_duration_ms = reward_duration_ms if reward_duration_ms > 0 else 30
+        airpuff_duration_ms = max(
+            [context.airpuff_ms for context in self.config.contexts.values()]
+            + [self.config.airpuff_duration_ms]
+        )
 
         self._pulse_and_confirm(
             step_name="Water solenoid",
@@ -234,9 +241,9 @@ class HardwareBringUpChecklist:
         self._pulse_and_confirm(
             step_name="Air solenoid",
             pin=pinmap.air_solenoid,
-            duration_ms=self.config.airpuff_duration_ms,
+            duration_ms=airpuff_duration_ms,
             confirmation_prompt=(
-                f"Observed air solenoid actuation (duration {self.config.airpuff_duration_ms} ms)?"
+                f"Observed air solenoid actuation (duration {airpuff_duration_ms} ms)?"
             ),
         )
 

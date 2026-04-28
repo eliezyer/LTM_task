@@ -60,6 +60,16 @@ class HardwareCommandExecutor:
                     raise ValueError("AUDIO_START_CONTEXT requires context_id")
                 self.audio.start_context(command.context_id)
 
+            elif command.type == CommandType.AUDIO_START_CUE:
+                if command.cue_id is None:
+                    raise ValueError("AUDIO_START_CUE requires cue_id")
+                self.audio.start_cue(command.cue_id)
+
+            elif command.type == CommandType.AUDIO_START_CUES:
+                if command.cue_ids is None:
+                    raise ValueError("AUDIO_START_CUES requires cue_ids")
+                self.audio.start_cues(command.cue_ids)
+
             elif command.type == CommandType.AUDIO_STOP_ALL:
                 self.audio.stop_all()
 

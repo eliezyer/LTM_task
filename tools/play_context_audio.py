@@ -24,7 +24,6 @@ def build_parser() -> argparse.ArgumentParser:
         "context_id",
         type=int,
         nargs="?",
-        choices=(1, 2, 3),
         help="Context number to trigger",
     )
     parser.add_argument(
@@ -63,11 +62,9 @@ def build_audio_controller(config: SessionConfig, *, mock_hardware: bool) -> tup
     audio = WavTriggerController(
         gpio=gpio,
         trial_available_pin=config.pinmap.wav_trial_available,
-        context_pin_map={
-            1: config.pinmap.wav_context_1,
-            2: config.pinmap.wav_context_2,
-            3: config.pinmap.wav_context_3,
-        },
+        context_pin_map=config.context_audio_pin_map,
+        cue_pin_map=config.audio_cue_pin_map,
+        context_cue_map=config.context_audio_cue_map,
     )
     return gpio, audio
 
@@ -80,6 +77,11 @@ def main() -> None:
         raise SystemExit("Provide a context_id or use --trial-available.")
 
     config = load_config(args.config)
+    if args.context_id is not None and args.context_id not in config.contexts:
+        raise SystemExit(
+            f"context_id {args.context_id} is not configured. "
+            f"Available contexts: {list(config.context_ids)}"
+        )
     gpio, audio = build_audio_controller(config, mock_hardware=args.mock_hardware)
 
     try:
@@ -87,15 +89,15 @@ def main() -> None:
 
         if args.trial_available:
             print(
-                f"Playing trial-available on WAV channel 1 "
+                f"Playing trial-available cue "
                 f"(BCM pin {audio.trial_available_pin}) for {args.seconds:.1f} s"
             )
             audio.start_trial_available()
         else:
-            wav_channel = args.context_id + 1
+            context = config.context_config(args.context_id)
             bcm_pin = audio.context_pin_map[args.context_id]
             print(
-                f"Playing context {args.context_id} on WAV channel {wav_channel} "
+                f"Playing context {args.context_id} cue {context.audio_cue} "
                 f"(BCM pin {bcm_pin}) for {args.seconds:.1f} s"
             )
             audio.start_context(args.context_id)

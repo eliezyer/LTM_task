@@ -13,7 +13,7 @@ RPi5 sends a fixed 16-byte UDP packet to Unity on every loop iteration.
 - `position_cm`: virtual position inside current segment
 - `scene_id`:
   - `0`: opening/black
-  - `1,2,3`: context scene IDs
+  - context scene IDs come from each context's `scene_id` in the session config
 - `flags` bitmask:
   - bit0: teleport event this tick
   - bit1: ITI active

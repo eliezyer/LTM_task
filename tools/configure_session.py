@@ -45,6 +45,20 @@ def prompt_float(prompt: str, default: float) -> float:
             print("Enter a valid number.")
 
 
+def prompt_int_list(prompt: str, default: list[int]) -> list[int]:
+    default_label = ",".join(str(value) for value in default)
+    while True:
+        raw = prompt_str(prompt, default_label)
+        try:
+            values = [int(part.strip()) for part in raw.split(",") if part.strip()]
+        except ValueError:
+            print("Enter comma-separated integers.")
+            continue
+        if values and len(set(values)) == len(values):
+            return values
+        print("Enter at least one unique context ID.")
+
+
 def prompt_yes_no(prompt: str, default: bool = False) -> bool:
     default_label = "Y/n" if default else "y/N"
     while True:
@@ -104,19 +118,50 @@ def main() -> None:
     animal_id = prompt_str("Animal ID")
     session_type = prompt_session_type()
     num_trials = prompt_int("Number of trials", 50)
+    context_ids = prompt_int_list("Context IDs", [1, 2, 3])
 
-    reward_ms_by_context = {
-        1: prompt_int("Reward pulse duration context 1 (ms)", 30),
-        2: prompt_int("Reward pulse duration context 2 (ms)", 0),
-        3: prompt_int("Reward pulse duration context 3 (ms)", 30),
-    }
-
+    airpuff_duration_ms = prompt_int("Default airpuff pulse duration (ms)", 50)
+    default_reward_ms = {1: 30, 2: 0, 3: 30}
+    default_audio_pins = {1: 7, 2: 8, 3: 13}
+    reward_ms_by_context: dict[int, int] = {}
     airpuff_contexts: list[int] = []
-    for context_id in (1, 2, 3):
+    contexts: list[dict[str, int | str]] = []
+    wav_cues: dict[str, int] = {}
+
+    for context_id in context_ids:
+        reward_ms = prompt_int(
+            f"Reward pulse duration context {context_id} (ms)",
+            default_reward_ms.get(context_id, 0),
+        )
+        reward_ms_by_context[context_id] = reward_ms
         if prompt_yes_no(f"Deliver airpuff in context {context_id}?", default=False):
             airpuff_contexts.append(context_id)
+            airpuff_ms = airpuff_duration_ms
+        else:
+            airpuff_ms = 0
 
-    airpuff_duration_ms = prompt_int("Airpuff pulse duration (ms)", 50)
+        scene_id = prompt_int(f"Unity scene ID for context {context_id}", context_id)
+        identity_pulses = prompt_int(
+            f"TTL identity pulse count for context {context_id}",
+            context_id,
+        )
+        audio_cue = prompt_str(f"Audio cue name for context {context_id}", f"context_{context_id}")
+        suggested_audio_pin = default_audio_pins.get(context_id, 24 + len(wav_cues))
+        audio_pin = prompt_int(
+            f"WAV trigger BCM pin for cue {audio_cue}",
+            suggested_audio_pin,
+        )
+        wav_cues[audio_cue] = audio_pin
+        contexts.append(
+            {
+                "id": context_id,
+                "scene_id": scene_id,
+                "audio_cue": audio_cue,
+                "identity_pulses": identity_pulses,
+                "reward_ms": reward_ms,
+                "airpuff_ms": airpuff_ms,
+            }
+        )
 
     iti_kind = prompt_str("ITI distribution kind (uniform or truncated_exponential)", "uniform")
     iti_min = prompt_float("ITI min (seconds)", 2.0)
@@ -144,6 +189,7 @@ def main() -> None:
         "animal_id": animal_id,
         "session_type": session_type.value,
         "num_trials": num_trials,
+        "contexts": contexts,
         "reward_ms_by_context": reward_ms_by_context,
         "airpuff_contexts": airpuff_contexts,
         "airpuff_duration_ms": airpuff_duration_ms,
@@ -164,6 +210,7 @@ def main() -> None:
         "output_tmp_dir": output_tmp_dir,
         "output_final_dir": output_final_dir,
         "seed": seed,
+        "pinmap": {"wav_cues": wav_cues},
     }
 
     config = SessionConfig.from_dict(config_payload)

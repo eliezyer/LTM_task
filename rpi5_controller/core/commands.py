@@ -9,6 +9,8 @@ class CommandType(str, Enum):
     TELEPORT = "teleport"
     AUDIO_START_TRIAL_AVAILABLE = "audio_start_trial_available"
     AUDIO_START_CONTEXT = "audio_start_context"
+    AUDIO_START_CUE = "audio_start_cue"
+    AUDIO_START_CUES = "audio_start_cues"
     AUDIO_STOP_ALL = "audio_stop_all"
     SOLENOID_REWARD = "solenoid_reward"
     SOLENOID_AIRPUFF = "solenoid_airpuff"
@@ -31,5 +33,7 @@ class Command:
     type: CommandType
     ttl_event: TTLEvent | None = None
     context_id: int | None = None
+    cue_id: str | None = None
+    cue_ids: tuple[str, ...] | None = None
     duration_ms: int | None = None
     pulse_count: int | None = None

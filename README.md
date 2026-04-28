@@ -51,3 +51,4 @@ Full instructions: `docs/hardware_bringup.md`
 
 - Real-time scheduling (`SCHED_FIFO`, CPU affinity, PREEMPT_RT kernel tuning) is documented in `docs/deployment.md`.
 - GPIO defaults follow the spec and can be overridden in the JSON config.
+- Task structure can be changed from JSON; see `docs/task_modularity.md`.

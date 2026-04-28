@@ -7,9 +7,6 @@
     "animal_id",
     "session_type",
     "num_trials",
-    "reward_ms_by_context",
-    "airpuff_contexts",
-    "airpuff_duration_ms",
     "iti_distribution",
     "speed_threshold_cm_s",
     "stall_timeout_s",
@@ -32,19 +29,39 @@
       "type": "integer",
       "minimum": 1
     },
+    "contexts": {
+      "oneOf": [
+        {
+          "type": "array",
+          "items": {"$ref": "#/$defs/context"}
+        },
+        {
+          "type": "object",
+          "additionalProperties": {"$ref": "#/$defs/context"}
+        }
+      ]
+    },
+    "context_sequence": {
+      "type": "array",
+      "items": {"type": "integer", "minimum": 1, "maximum": 255}
+    },
+    "task_events": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": {"$ref": "#/$defs/task_action"}
+      }
+    },
     "reward_ms_by_context": {
       "type": "object",
-      "required": ["1", "2", "3"],
-      "additionalProperties": false,
-      "properties": {
-        "1": {"type": "integer", "minimum": 0},
-        "2": {"type": "integer", "minimum": 0},
-        "3": {"type": "integer", "minimum": 0}
-      }
+      "patternProperties": {
+        "^[1-9][0-9]*$": {"type": "integer", "minimum": 0}
+      },
+      "additionalProperties": false
     },
     "airpuff_contexts": {
       "type": "array",
-      "items": {"type": "integer", "enum": [1, 2, 3]},
+      "items": {"type": "integer", "minimum": 1, "maximum": 255},
       "uniqueItems": true
     },
     "airpuff_duration_ms": {
@@ -145,6 +162,10 @@
         "wav_context_1": {"type": "integer", "minimum": 0},
         "wav_context_2": {"type": "integer", "minimum": 0},
         "wav_context_3": {"type": "integer", "minimum": 0},
+        "wav_cues": {
+          "type": "object",
+          "additionalProperties": {"type": "integer", "minimum": 0}
+        },
         "lick_input": {"type": "integer", "minimum": 0},
         "ttl_trial_start": {"type": "integer", "minimum": 0},
         "ttl_context_identity": {"type": "integer", "minimum": 0},
@@ -153,6 +174,80 @@
         "ttl_airpuff": {"type": "integer", "minimum": 0},
         "ttl_lick": {"type": "integer", "minimum": 0},
         "ttl_iti_start": {"type": "integer", "minimum": 0}
+      }
+    }
+  },
+  "$defs": {
+    "context": {
+      "type": "object",
+      "properties": {
+        "id": {"type": "integer", "minimum": 1, "maximum": 255},
+        "scene_id": {"type": "integer", "minimum": 0, "maximum": 255},
+        "audio_cue": {"type": "string", "minLength": 1},
+        "identity_pulses": {"type": "integer", "minimum": 1},
+        "reward_ms": {"type": "integer", "minimum": 0},
+        "airpuff_ms": {"type": "integer", "minimum": 0},
+        "outcome_events": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "task_action": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "airpuff",
+            "reset_segment",
+            "reward",
+            "start_audio",
+            "stop_audio",
+            "teleport",
+            "ttl_pulse",
+            "ttl_pulse_train"
+          ]
+        },
+        "kind": {"type": "string"},
+        "action": {"type": "string"},
+        "cue": {"type": "string"},
+        "cues": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "event": {
+          "type": "string",
+          "enum": [
+            "trial_start",
+            "context_identity",
+            "context_entry",
+            "reward",
+            "airpuff",
+            "lick_onset",
+            "iti_start"
+          ]
+        },
+        "ttl_event": {
+          "type": "string",
+          "enum": [
+            "trial_start",
+            "context_identity",
+            "context_entry",
+            "reward",
+            "airpuff",
+            "lick_onset",
+            "iti_start"
+          ]
+        },
+        "duration_ms": {"type": "integer", "minimum": 1},
+        "pulse_count": {
+          "oneOf": [
+            {"type": "integer", "minimum": 1},
+            {"type": "string", "enum": ["context_id", "context_identity"]}
+          ]
+        }
       }
     }
   }

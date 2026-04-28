@@ -7,6 +7,7 @@ from rpi5_controller.core.config import SessionConfig
 from rpi5_controller.core.enums import BehaviorState, SessionType, UdpFlags
 from rpi5_controller.core.iti import ITISampler
 from rpi5_controller.core.randomization import ContextBlockRandomizer
+from rpi5_controller.core.task_flow import build_event_commands
 
 
 @dataclass(frozen=True)
@@ -40,7 +41,11 @@ class BehaviorStateMachine:
 
         self._randomizer = ContextBlockRandomizer(
             num_trials=config.num_trials,
+            contexts=config.context_ids,
             seed=config.seed,
+            fixed_sequence=tuple(config.context_sequence)
+            if config.context_sequence is not None
+            else None,
         )
         self._iti_sampler = ITISampler(config.iti_distribution, seed=config.seed)
 
@@ -93,32 +98,18 @@ class BehaviorStateMachine:
             ):
                 if self.config.session_type == SessionType.RETRIEVAL:
                     self._enter_iti(commands, tick_input.now_s)
-                elif self.current_context in self.config.airpuff_contexts:
-                    self.state = BehaviorState.AIRPUFF_DELIVERY
-                    airpuff_on = True
-                    commands.append(
-                        Command(
-                            type=CommandType.SOLENOID_AIRPUFF,
-                            duration_ms=self.config.airpuff_duration_ms,
-                        )
-                    )
-                    commands.append(
-                        Command(type=CommandType.TTL_PULSE, ttl_event=TTLEvent.AIRPUFF)
-                    )
-                    self._enter_iti(commands, tick_input.now_s)
                 else:
-                    reward_duration = self.config.reward_ms_by_context[self.current_context]
-                    if reward_duration > 0:
-                        self.state = BehaviorState.REWARD_DELIVERY
-                        reward_on = True
-                        commands.append(
-                            Command(
-                                type=CommandType.SOLENOID_REWARD,
-                                duration_ms=reward_duration,
+                    for event_name in self._current_context_config().resolved_outcome_events():
+                        if event_name == "airpuff":
+                            self.state = BehaviorState.AIRPUFF_DELIVERY
+                        elif event_name == "reward":
+                            self.state = BehaviorState.REWARD_DELIVERY
+                        commands.extend(
+                            build_event_commands(
+                                self.config,
+                                event_name,
+                                context=self._current_context_config(),
                             )
-                        )
-                        commands.append(
-                            Command(type=CommandType.TTL_PULSE, ttl_event=TTLEvent.REWARD)
                         )
                     self._enter_iti(commands, tick_input.now_s)
 
@@ -133,6 +124,13 @@ class BehaviorStateMachine:
                     self.current_context = self._randomizer.next_context()
                     self._enter_opening_corridor(commands)
 
+        reward_on = reward_on or any(
+            cmd.type == CommandType.SOLENOID_REWARD for cmd in commands
+        )
+        airpuff_on = airpuff_on or any(
+            cmd.type == CommandType.SOLENOID_AIRPUFF for cmd in commands
+        )
+
         return self._build_output(
             commands=commands,
             freeze=freeze,
@@ -143,41 +141,40 @@ class BehaviorStateMachine:
     def _enter_opening_corridor(self, commands: list[Command]) -> None:
         self.state = BehaviorState.OPENING_CORRIDOR
         self._stall_start_s = None
-        commands.append(Command(type=CommandType.AUDIO_STOP_ALL))
-        commands.append(Command(type=CommandType.RESET_SEGMENT))
-        commands.append(Command(type=CommandType.TELEPORT))
-        commands.append(Command(type=CommandType.TTL_PULSE, ttl_event=TTLEvent.TRIAL_START))
-        commands.append(Command(type=CommandType.AUDIO_START_TRIAL_AVAILABLE))
+        commands.extend(
+            build_event_commands(
+                self.config,
+                "trial_start",
+                context=self._current_context_config(),
+            )
+        )
 
     def _enter_context_zone(self, commands: list[Command]) -> None:
         self.state = BehaviorState.CONTEXT_ZONE
         self._stall_start_s = None
-        commands.append(Command(type=CommandType.RESET_SEGMENT))
-        commands.append(Command(type=CommandType.TELEPORT))
-        commands.append(
-            Command(
-                type=CommandType.AUDIO_START_CONTEXT,
-                context_id=self.current_context,
+        commands.extend(
+            build_event_commands(
+                self.config,
+                "context_entry",
+                context=self._current_context_config(),
             )
         )
-        commands.append(
-            Command(
-                type=CommandType.TTL_PULSE_TRAIN,
-                ttl_event=TTLEvent.CONTEXT_IDENTITY,
-                pulse_count=self.current_context,
-            )
-        )
-        commands.append(Command(type=CommandType.TTL_PULSE, ttl_event=TTLEvent.CONTEXT_ENTRY))
 
     def _enter_iti(self, commands: list[Command], now_s: float) -> None:
         self.state = BehaviorState.ITI
         self._stall_start_s = None
         iti_duration = self._iti_sampler.sample_seconds()
         self._iti_end_s = now_s + iti_duration
-        commands.append(Command(type=CommandType.AUDIO_STOP_ALL))
-        commands.append(Command(type=CommandType.RESET_SEGMENT))
-        commands.append(Command(type=CommandType.TELEPORT))
-        commands.append(Command(type=CommandType.TTL_PULSE, ttl_event=TTLEvent.ITI_START))
+        commands.extend(
+            build_event_commands(
+                self.config,
+                "iti_start",
+                context=self._current_context_config(),
+            )
+        )
+
+    def _current_context_config(self):
+        return self.config.context_config(self.current_context)
 
     def _build_output(
         self,
@@ -188,7 +185,7 @@ class BehaviorStateMachine:
     ) -> TickOutput:
         scene_id = 0
         if self.state == BehaviorState.CONTEXT_ZONE:
-            scene_id = self.current_context
+            scene_id = self._current_context_config().scene_id
 
         flags = UdpFlags.NONE
         if any(cmd.type == CommandType.TELEPORT for cmd in commands):

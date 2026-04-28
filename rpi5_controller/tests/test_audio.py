@@ -78,3 +78,22 @@ def test_trial_available_switches_to_context_cue() -> None:
     assert gpio.pin_values == {6: 1, 7: 1, 8: 1, 13: 1}
     assert audio.active_context is None
     assert not audio.trial_available_active
+
+
+def test_start_cues_can_play_multiple_audio_lines_together() -> None:
+    gpio = MockGPIOBackend()
+    audio = WavTriggerController(
+        gpio=gpio,
+        trial_available_pin=6,
+        cue_pin_map={"tone_a": 11, "tone_b": 12},
+    )
+
+    audio.setup()
+    audio.start_cues(("tone_a", "tone_b"))
+
+    assert gpio.pin_values[6] == 1
+    assert gpio.pin_values[11] == 0
+    assert gpio.pin_values[12] == 0
+    assert audio.active_cues == {"tone_a", "tone_b"}
+    assert audio.active_context is None
+    assert not audio.trial_available_active
