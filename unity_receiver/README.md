@@ -6,7 +6,7 @@ This folder contains sample Unity C# scripts for the rendering computer.
 
 - `Assets/Scripts/VrUdpPacket.cs`: Parses 16-byte UDP packets from RPi5
 - `Assets/Scripts/VrUdpReceiver.cs`: Background UDP listener (port 5005 by default)
-- `Assets/Scripts/VrContextGenerator.cs`: Procedurally builds opening + 3 context scenes + ITI scene
+- `Assets/Scripts/VrContextGenerator.cs`: Procedurally builds opening + 3 context scenes + ITI scene with blue-on-black wall textures
 - `Assets/Scripts/VrRenderController.cs`: Activates scene + updates rig position from latest packet
 
 ## Packet Contract
@@ -37,3 +37,5 @@ This folder contains sample Unity C# scripts for the rendering computer.
 
 - The renderer uses only the newest packet and does not queue old packets.
 - Scene 0 is used for opening corridor; ITI uses a separate black scene when the ITI flag is set.
+- The context generator creates its own runtime materials and procedural textures. Leave `Material Template` empty and keep `Use Material Template Shader` off unless you have a known-good unlit shader for your render pipeline.
+- Default scene cues are all blue on black: opening diamonds, context 1 vertical gratings, context 2 checkerboard, and context 3 polka dots.
