@@ -42,8 +42,8 @@ def _modular_config() -> SessionConfig:
             },
             "pinmap": {
                 "wav_cues": {
-                    "forest": 24,
-                    "desert": 25,
+                    "forest": 25,
+                    "desert": 26,
                 }
             },
             "iti_distribution": {
@@ -68,7 +68,7 @@ def test_config_supports_custom_contexts_cues_and_fixed_sequence() -> None:
     cfg = _modular_config()
 
     assert cfg.context_ids == (10, 20)
-    assert cfg.context_audio_pin_map == {10: 24, 20: 25}
+    assert cfg.context_audio_pin_map == {10: 25, 20: 26}
     assert cfg.context_config(20).resolved_outcome_events() == ("airpuff",)
     assert cfg.reward_ms_by_context == {10: 12, 20: 0}
     assert cfg.airpuff_contexts == [20]

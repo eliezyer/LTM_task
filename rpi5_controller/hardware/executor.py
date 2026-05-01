@@ -34,6 +34,7 @@ class HardwareCommandExecutor:
             TTLEvent.CONTEXT_ENTRY: config.pinmap.ttl_context_entry,
             TTLEvent.REWARD: config.pinmap.ttl_reward,
             TTLEvent.AIRPUFF: config.pinmap.ttl_airpuff,
+            TTLEvent.OUTCOME_START: config.pinmap.ttl_outcome_start,
             TTLEvent.LICK_ONSET: config.pinmap.ttl_lick,
             TTLEvent.ITI_START: config.pinmap.ttl_iti_start,
         }
@@ -99,7 +100,7 @@ class HardwareCommandExecutor:
                 ttl_pin = self._ttl_pin_map[command.ttl_event]
                 self.pulse_scheduler.schedule_pulse(
                     pin=ttl_pin,
-                    duration_ms=self.config.ttl_pulse_width_ms,
+                    duration_ms=command.duration_ms or self.config.ttl_pulse_width_ms,
                     now_s=now_s,
                 )
 

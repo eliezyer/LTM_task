@@ -7,7 +7,7 @@ Sample Unity receiver code is provided in:
 ## Provided Components
 
 - `VrUdpReceiver`: listens on UDP and stores latest packet
-- `VrContextGenerator`: procedurally creates opening/context/ITI environments
+- `VrContextGenerator`: procedurally creates opening/context/outcome/ITI environments
 - `VrRenderController`: switches scenes and applies position updates
 
 ## Expected Runtime Behavior
@@ -16,3 +16,4 @@ Sample Unity receiver code is provided in:
 - Unity only renders based on latest packet each frame.
 - Teleports are applied immediately when flag bit0 is set.
 - ITI scene is shown whenever flag bit1 is set.
+- Outcome scene is shown whenever flag bit3 is set.

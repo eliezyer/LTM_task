@@ -9,8 +9,10 @@ builds the original task:
    trial-available cue
 2. context entry: reset segment, teleport, play context cue, emit context
    identity pulse train, TTL context entry
-3. reward or airpuff at `reward_zone_position_cm`
-4. ITI start: stop audio, reset segment, teleport, TTL ITI start
+3. outcome zone at `reward_zone_position_cm`: stop audio, reset segment,
+   teleport, hold TTL outcome start high, and deliver reward or airpuff
+4. ITI start after `outcome_zone_duration_s`: stop audio, reset segment,
+   teleport, TTL ITI start
 
 ## Core Pieces
 
@@ -19,12 +21,16 @@ Use these JSON sections to change the task:
 - `contexts`: which contexts exist and what each context means
 - `context_sequence`: optional fixed trial-by-trial context order
 - `task_events`: ordered action lists for each trigger point
+- `outcome_zone_duration_s` and `outcome_scene_id`: how long Unity shows the
+  reward/punishment outcome scene, and which scene ID it receives
 - `pinmap.wav_cues`: named WAV Trigger input pins for any new audio cues
+- `pinmap.ttl_outcome_start`: TTL line held high during the outcome zone
 
 The built-in trigger points are:
 
 - `trial_start`
 - `context_entry`
+- `outcome_start`
 - `reward`
 - `airpuff`
 - `iti_start`
@@ -58,7 +64,7 @@ one of the legacy defaults: `context_1`, `context_2`, or `context_3`.
   ],
   "pinmap": {
     "wav_cues": {
-      "context_4": 24
+      "context_4": 25
     }
   }
 }
@@ -125,6 +131,11 @@ By default, a context with `airpuff_ms > 0` triggers `airpuff`; otherwise a
 context with `reward_ms > 0` triggers `reward`. To run a different outcome list,
 set `outcome_events`.
 
+Training and retraining sessions now enter an explicit outcome zone before ITI
+when a context has at least one outcome event. The RPi sends `outcome_scene_id`
+to Unity, sets UDP flag bit3 while the outcome zone is active, and holds
+`ttl_outcome_start` high for `outcome_zone_duration_s`.
+
 ```json
 {
   "contexts": [
@@ -154,13 +165,13 @@ retrieval behavior.
 - `start_audio` with `cue` or `cues`
 - `reset_segment`
 - `teleport`
-- `ttl_pulse` with `event`
+- `ttl_pulse` with `event` and optional `duration_ms`
 - `ttl_pulse_train` with `event` and `pulse_count`
 - `reward`, using the current context's `reward_ms` unless `duration_ms` is set
 - `airpuff`, using the current context's `airpuff_ms` unless `duration_ms` is set
 
 TTL `event` can be `trial_start`, `context_identity`, `context_entry`, `reward`,
-`airpuff`, `lick_onset`, or `iti_start`.
+`airpuff`, `outcome_start`, `lick_onset`, or `iti_start`.
 
 ## Check A Change
 

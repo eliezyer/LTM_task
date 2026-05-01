@@ -12,9 +12,12 @@
   },
   "num_trials": 50,
   "opening_corridor_length_cm": 60.0,
+  "outcome_scene_id": 4,
+  "outcome_zone_duration_s": 1.0,
   "output_final_dir": "logs",
   "output_tmp_dir": "/tmp/bhv_log",
   "pinmap": {
+    "ttl_outcome_start": 24,
     "wav_context_1": 7,
     "wav_context_2": 8,
     "wav_context_3": 13,

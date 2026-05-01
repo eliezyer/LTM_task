@@ -97,6 +97,7 @@ class HardwareBringUpChecklist:
             pinmap.ttl_airpuff,
             pinmap.ttl_lick,
             pinmap.ttl_iti_start,
+            pinmap.ttl_outcome_start,
         }
 
         for pin in output_pins:
@@ -117,6 +118,7 @@ class HardwareBringUpChecklist:
             ("TTL Airpuff (DI4)", pinmap.ttl_airpuff),
             ("TTL Lick Onset (DI5)", pinmap.ttl_lick),
             ("TTL ITI Start (DI6)", pinmap.ttl_iti_start),
+            ("TTL Outcome Zone (DI7)", pinmap.ttl_outcome_start),
         ]
 
         for name, pin in ttl_single_lines:

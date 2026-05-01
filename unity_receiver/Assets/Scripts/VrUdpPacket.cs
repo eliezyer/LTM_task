@@ -9,6 +9,7 @@ namespace LtmVr
         Teleport = 1 << 0,
         ItiActive = 1 << 1,
         Freeze = 1 << 2,
+        OutcomeActive = 1 << 3,
     }
 
     public struct VrUdpPacket

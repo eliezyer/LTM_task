@@ -39,6 +39,7 @@ def _build_action_commands(
             Command(
                 type=CommandType.TTL_PULSE,
                 ttl_event=TTLEvent(action.ttl_event),
+                duration_ms=action.duration_ms,
             )
         ]
     if action.kind == "ttl_pulse_train":

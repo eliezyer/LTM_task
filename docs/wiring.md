@@ -32,6 +32,7 @@
 - GPIO 21 -> DI4 Airpuff
 - GPIO 22 -> DI5 Lick onset
 - GPIO 23 -> DI6 ITI start
+- GPIO 24 -> DI7 Outcome/reward-punishment zone active
 
 ## Notes
 

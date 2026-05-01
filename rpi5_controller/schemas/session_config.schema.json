@@ -101,6 +101,15 @@
       "type": "number",
       "exclusiveMinimum": 0
     },
+    "outcome_zone_duration_s": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "outcome_scene_id": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 255
+    },
     "wheel_diameter_cm": {
       "type": "number",
       "exclusiveMinimum": 0
@@ -173,7 +182,8 @@
         "ttl_reward": {"type": "integer", "minimum": 0},
         "ttl_airpuff": {"type": "integer", "minimum": 0},
         "ttl_lick": {"type": "integer", "minimum": 0},
-        "ttl_iti_start": {"type": "integer", "minimum": 0}
+        "ttl_iti_start": {"type": "integer", "minimum": 0},
+        "ttl_outcome_start": {"type": "integer", "minimum": 0}
       }
     }
   },
@@ -225,6 +235,7 @@
             "context_entry",
             "reward",
             "airpuff",
+            "outcome_start",
             "lick_onset",
             "iti_start"
           ]
@@ -237,6 +248,7 @@
             "context_entry",
             "reward",
             "airpuff",
+            "outcome_start",
             "lick_onset",
             "iti_start"
           ]

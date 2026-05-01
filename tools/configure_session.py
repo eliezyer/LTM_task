@@ -146,7 +146,7 @@ def main() -> None:
             context_id,
         )
         audio_cue = prompt_str(f"Audio cue name for context {context_id}", f"context_{context_id}")
-        suggested_audio_pin = default_audio_pins.get(context_id, 24 + len(wav_cues))
+        suggested_audio_pin = default_audio_pins.get(context_id, 25 + len(wav_cues))
         audio_pin = prompt_int(
             f"WAV trigger BCM pin for cue {audio_cue}",
             suggested_audio_pin,
@@ -174,6 +174,8 @@ def main() -> None:
     opening_length = prompt_float("Opening corridor length (cm)", 60.0)
     context_length = prompt_float("Context zone length (cm)", 120.0)
     reward_zone = prompt_float("Reward zone position inside context zone (cm)", 100.0)
+    outcome_duration = prompt_float("Outcome/reward-punish zone duration (seconds)", 1.0)
+    outcome_scene_id = prompt_int("Unity outcome scene ID", 4)
 
     wheel_diameter = prompt_float("Wheel diameter (cm)", 20.0)
     encoder_cpr = prompt_int("Encoder CPR", 1024)
@@ -204,6 +206,8 @@ def main() -> None:
         "opening_corridor_length_cm": opening_length,
         "context_zone_length_cm": context_length,
         "reward_zone_position_cm": reward_zone,
+        "outcome_zone_duration_s": outcome_duration,
+        "outcome_scene_id": outcome_scene_id,
         "wheel_diameter_cm": wheel_diameter,
         "encoder_cpr": encoder_cpr,
         "speed_alpha": speed_alpha,

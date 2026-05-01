@@ -37,6 +37,7 @@ class BehaviorStateMachine:
         self.trials_completed = 0
         self.current_context = 0
         self._iti_end_s: float | None = None
+        self._outcome_end_s: float | None = None
         self._stall_start_s: float | None = None
 
         self._randomizer = ContextBlockRandomizer(
@@ -99,19 +100,18 @@ class BehaviorStateMachine:
                 if self.config.session_type == SessionType.RETRIEVAL:
                     self._enter_iti(commands, tick_input.now_s)
                 else:
-                    for event_name in self._current_context_config().resolved_outcome_events():
-                        if event_name == "airpuff":
-                            self.state = BehaviorState.AIRPUFF_DELIVERY
-                        elif event_name == "reward":
-                            self.state = BehaviorState.REWARD_DELIVERY
-                        commands.extend(
-                            build_event_commands(
-                                self.config,
-                                event_name,
-                                context=self._current_context_config(),
-                            )
-                        )
-                    self._enter_iti(commands, tick_input.now_s)
+                    outcome_events = self._current_context_config().resolved_outcome_events()
+                    if outcome_events:
+                        self._enter_outcome_zone(commands, tick_input.now_s, outcome_events)
+                    else:
+                        self._enter_iti(commands, tick_input.now_s)
+
+        elif self.state == BehaviorState.OUTCOME_ZONE:
+            if (
+                self._outcome_end_s is not None
+                and tick_input.now_s >= self._outcome_end_s
+            ):
+                self._enter_iti(commands, tick_input.now_s)
 
         elif self.state == BehaviorState.ITI:
             if self._iti_end_s is not None and tick_input.now_s >= self._iti_end_s:
@@ -140,6 +140,7 @@ class BehaviorStateMachine:
 
     def _enter_opening_corridor(self, commands: list[Command]) -> None:
         self.state = BehaviorState.OPENING_CORRIDOR
+        self._outcome_end_s = None
         self._stall_start_s = None
         commands.extend(
             build_event_commands(
@@ -151,6 +152,7 @@ class BehaviorStateMachine:
 
     def _enter_context_zone(self, commands: list[Command]) -> None:
         self.state = BehaviorState.CONTEXT_ZONE
+        self._outcome_end_s = None
         self._stall_start_s = None
         commands.extend(
             build_event_commands(
@@ -160,8 +162,49 @@ class BehaviorStateMachine:
             )
         )
 
+    def _enter_outcome_zone(
+        self,
+        commands: list[Command],
+        now_s: float,
+        outcome_events: tuple[str, ...],
+    ) -> None:
+        self.state = BehaviorState.OUTCOME_ZONE
+        self._stall_start_s = None
+        self._outcome_end_s = now_s + self.config.outcome_zone_duration_s
+        context = self._current_context_config()
+
+        commands.extend(
+            build_event_commands(
+                self.config,
+                "outcome_start",
+                context=context,
+            )
+        )
+
+        outcome_ttl_duration_ms = max(
+            1,
+            int(round(self.config.outcome_zone_duration_s * 1000.0)),
+        )
+        commands.append(
+            Command(
+                type=CommandType.TTL_PULSE,
+                ttl_event=TTLEvent.OUTCOME_START,
+                duration_ms=outcome_ttl_duration_ms,
+            )
+        )
+
+        for event_name in outcome_events:
+            commands.extend(
+                build_event_commands(
+                    self.config,
+                    event_name,
+                    context=context,
+                )
+            )
+
     def _enter_iti(self, commands: list[Command], now_s: float) -> None:
         self.state = BehaviorState.ITI
+        self._outcome_end_s = None
         self._stall_start_s = None
         iti_duration = self._iti_sampler.sample_seconds()
         self._iti_end_s = now_s + iti_duration
@@ -186,12 +229,16 @@ class BehaviorStateMachine:
         scene_id = 0
         if self.state == BehaviorState.CONTEXT_ZONE:
             scene_id = self._current_context_config().scene_id
+        elif self.state == BehaviorState.OUTCOME_ZONE:
+            scene_id = self.config.outcome_scene_id
 
         flags = UdpFlags.NONE
         if any(cmd.type == CommandType.TELEPORT for cmd in commands):
             flags |= UdpFlags.TELEPORT
         if self.state == BehaviorState.ITI:
             flags |= UdpFlags.ITI_ACTIVE
+        if self.state == BehaviorState.OUTCOME_ZONE:
+            flags |= UdpFlags.OUTCOME_ACTIVE
         if freeze and self.state in {
             BehaviorState.OPENING_CORRIDOR,
             BehaviorState.CONTEXT_ZONE,

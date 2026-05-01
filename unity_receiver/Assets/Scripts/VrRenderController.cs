@@ -15,6 +15,7 @@ namespace LtmVr
 
         private int _activeSceneId = -1;
         private bool _activeIti;
+        private bool _activeOutcome;
         private bool _initialized;
 
         private void Reset()
@@ -33,7 +34,7 @@ namespace LtmVr
             {
                 contextGenerator.BuildContexts();
             }
-            ActivateScene(0, false);
+            ActivateScene(0, false, false);
             _initialized = true;
         }
 
@@ -55,24 +56,31 @@ namespace LtmVr
             }
 
             bool itiActive = (packet.Flags & VrFlags.ItiActive) != 0;
+            bool outcomeActive = (packet.Flags & VrFlags.OutcomeActive) != 0;
             bool teleport = (packet.Flags & VrFlags.Teleport) != 0;
 
-            if (!_initialized || teleport || packet.SceneId != _activeSceneId || itiActive != _activeIti)
+            if (
+                !_initialized
+                || teleport
+                || packet.SceneId != _activeSceneId
+                || itiActive != _activeIti
+                || outcomeActive != _activeOutcome
+            )
             {
-                ActivateScene(packet.SceneId, itiActive);
+                ActivateScene(packet.SceneId, itiActive, outcomeActive);
             }
 
-            ApplyPosition(packet.PositionCm, packet.SceneId, itiActive);
+            ApplyPosition(packet.PositionCm, packet.SceneId, itiActive, outcomeActive);
         }
 
-        private void ActivateScene(int sceneId, bool itiActive)
+        private void ActivateScene(int sceneId, bool itiActive, bool outcomeActive)
         {
             foreach (Transform root in contextGenerator.GetAllSceneRoots())
             {
                 root.gameObject.SetActive(false);
             }
 
-            Transform activeRoot = contextGenerator.GetSceneRoot(sceneId, itiActive);
+            Transform activeRoot = contextGenerator.GetSceneRoot(sceneId, itiActive, outcomeActive);
             if (activeRoot != null)
             {
                 activeRoot.gameObject.SetActive(true);
@@ -80,10 +88,11 @@ namespace LtmVr
 
             _activeSceneId = sceneId;
             _activeIti = itiActive;
+            _activeOutcome = outcomeActive;
             _initialized = true;
         }
 
-        private void ApplyPosition(float positionCm, int sceneId, bool itiActive)
+        private void ApplyPosition(float positionCm, int sceneId, bool itiActive, bool outcomeActive)
         {
             if (rigTransform == null)
             {
@@ -93,7 +102,11 @@ namespace LtmVr
             float zMeters = positionCm * 0.01f;
             if (clampPositionToSegment)
             {
-                float maxZ = contextGenerator.GetSegmentLengthMeters(sceneId, itiActive);
+                float maxZ = contextGenerator.GetSegmentLengthMeters(
+                    sceneId,
+                    itiActive,
+                    outcomeActive
+                );
                 zMeters = Mathf.Clamp(zMeters, 0.0f, maxZ);
             }
 

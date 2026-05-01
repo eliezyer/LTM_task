@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from rpi5_controller.core.commands import CommandType, TTLEvent
 from rpi5_controller.core.config import SessionConfig
-from rpi5_controller.core.enums import BehaviorState, SessionType
+from rpi5_controller.core.enums import BehaviorState, SessionType, UdpFlags
 from rpi5_controller.core.state_machine import BehaviorStateMachine, TickInput
 
 
@@ -75,6 +75,71 @@ def test_retrieval_has_no_feedback() -> None:
     assert not any(cmd.type in {CommandType.SOLENOID_REWARD, CommandType.SOLENOID_AIRPUFF} for cmd in output.commands)
     assert not _has_ttl(output.commands, TTLEvent.REWARD)
     assert not _has_ttl(output.commands, TTLEvent.AIRPUFF)
+
+
+def test_reward_zone_enters_outcome_before_iti() -> None:
+    cfg = SessionConfig.from_dict(
+        {
+            "animal_id": "mouse01",
+            "session_type": "training",
+            "num_trials": 1,
+            "contexts": [
+                {
+                    "id": 1,
+                    "scene_id": 1,
+                    "audio_cue": "context_1",
+                    "identity_pulses": 1,
+                    "reward_ms": 30,
+                }
+            ],
+            "context_sequence": [1],
+            "iti_distribution": {
+                "kind": "uniform",
+                "min_s": 0.1,
+                "max_s": 0.1,
+                "mean_s": 0.1,
+            },
+            "speed_threshold_cm_s": 1.0,
+            "stall_timeout_s": 1.0,
+            "opening_corridor_length_cm": 10.0,
+            "context_zone_length_cm": 20.0,
+            "reward_zone_position_cm": 5.0,
+            "outcome_zone_duration_s": 0.25,
+            "outcome_scene_id": 4,
+            "wheel_diameter_cm": 20.0,
+            "encoder_cpr": 1024,
+        }
+    )
+    sm = BehaviorStateMachine(cfg)
+    sm.start_session(now_s=0.0)
+    sm.tick(TickInput(now_s=0.01, segment_position_cm=10.0, speed_cm_s=10.0, lick_onset=False))
+
+    output = sm.tick(TickInput(now_s=0.02, segment_position_cm=5.0, speed_cm_s=10.0, lick_onset=False))
+
+    assert output.state == BehaviorState.OUTCOME_ZONE
+    assert output.scene_id == 4
+    assert output.flags & UdpFlags.OUTCOME_ACTIVE
+    assert output.flags & UdpFlags.TELEPORT
+    assert _has_ttl(output.commands, TTLEvent.OUTCOME_START)
+    assert next(
+        cmd.duration_ms
+        for cmd in output.commands
+        if cmd.type == CommandType.TTL_PULSE and cmd.ttl_event == TTLEvent.OUTCOME_START
+    ) == 250
+    assert _has_ttl(output.commands, TTLEvent.REWARD)
+    assert _has_command(output.commands, CommandType.SOLENOID_REWARD)
+
+    output = sm.tick(TickInput(now_s=0.10, segment_position_cm=1.0, speed_cm_s=10.0, lick_onset=False))
+
+    assert output.state == BehaviorState.OUTCOME_ZONE
+    assert output.flags & UdpFlags.OUTCOME_ACTIVE
+    assert not output.commands
+
+    output = sm.tick(TickInput(now_s=0.30, segment_position_cm=2.0, speed_cm_s=10.0, lick_onset=False))
+
+    assert output.state == BehaviorState.ITI
+    assert output.flags & UdpFlags.ITI_ACTIVE
+    assert _has_ttl(output.commands, TTLEvent.ITI_START)
 
 
 def test_stall_timeout_enters_iti(base_config: SessionConfig) -> None:

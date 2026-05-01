@@ -16,6 +16,7 @@ class BehaviorState(IntEnum):
     REWARD_DELIVERY = 3
     AIRPUFF_DELIVERY = 4
     ITI = 5
+    OUTCOME_ZONE = 6
 
 
 class Segment(str, Enum):
@@ -28,7 +29,9 @@ class UdpFlags(IntFlag):
     TELEPORT = 1 << 0
     ITI_ACTIVE = 1 << 1
     FREEZE = 1 << 2
+    OUTCOME_ACTIVE = 1 << 3
 
 
 SCENE_OPENING = 0
 SCENE_BLACK = 0
+SCENE_OUTCOME = 4

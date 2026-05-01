@@ -11,6 +11,8 @@ namespace LtmVr
         Checkerboard,
         PolkaDots,
         Diamonds,
+        LowSpatialSmudges,
+        ForwardArrowheads,
     }
 
     [System.Serializable]
@@ -38,13 +40,18 @@ namespace LtmVr
 
     public class VrContextGenerator : MonoBehaviour
     {
-        private const int CurrentContextStyleVersion = 2;
+        private const int CurrentContextStyleVersion = 3;
 
         [Header("Track Dimensions (cm)")]
         public float openingLengthCm = 60.0f;
         public float contextLengthCm = 120.0f;
+        public float outcomeLengthCm = 30.0f;
         public float corridorWidthCm = 40.0f;
         public float wallHeightCm = 30.0f;
+        public int outcomeSceneId = 4;
+        public float outcomeArrowSpacingCm = 15.0f;
+        public float outcomeArrowLengthCm = 12.0f;
+        public float outcomeArrowHeightCm = 16.0f;
 
         [Header("Generation")]
         public bool regenerateOnStart = true;
@@ -61,12 +68,15 @@ namespace LtmVr
         public ContextStyle context1Style = CreateContext1Style();
         public ContextStyle context2Style = CreateContext2Style();
         public ContextStyle context3Style = CreateContext3Style();
+        public ContextStyle outcomeStyle = CreateOutcomeStyle();
 
         private readonly Dictionary<int, Transform> _sceneRoots = new Dictionary<int, Transform>();
         private readonly List<Material> _generatedMaterials = new List<Material>();
         private readonly List<Texture2D> _generatedTextures = new List<Texture2D>();
+        private readonly List<Mesh> _generatedMeshes = new List<Mesh>();
 
         private Transform _itiRoot;
+        private Transform _outcomeRoot;
         private Shader _contextShader;
         private bool _warnedAboutTemplateShader;
 
@@ -105,6 +115,7 @@ namespace LtmVr
             _sceneRoots[1] = BuildSegment(1, context1Style, contextLengthCm);
             _sceneRoots[2] = BuildSegment(2, context2Style, contextLengthCm);
             _sceneRoots[3] = BuildSegment(3, context3Style, contextLengthCm);
+            _outcomeRoot = BuildOutcomeScene();
             _itiRoot = BuildItiScene();
         }
 
@@ -114,6 +125,7 @@ namespace LtmVr
             UpgradeLegacyStyle(ref context1Style, CreateContext1Style());
             UpgradeLegacyStyle(ref context2Style, CreateContext2Style());
             UpgradeLegacyStyle(ref context3Style, CreateContext3Style());
+            UpgradeLegacyStyle(ref outcomeStyle, CreateOutcomeStyle());
         }
 
         private static void UpgradeLegacyStyle(ref ContextStyle style, ContextStyle defaultStyle)
@@ -130,8 +142,8 @@ namespace LtmVr
             {
                 styleVersion = CurrentContextStyleVersion,
                 label = "Opening",
-                wallPattern = ContextWallPattern.Diamonds,
-                patternScaleCm = 14.0f,
+                wallPattern = ContextWallPattern.LowSpatialSmudges,
+                patternScaleCm = 30.0f,
                 patternDutyCycle = 0.5f,
                 featureRadiusFraction = 0.42f,
                 blueIntensity = 1.0f,
@@ -180,11 +192,35 @@ namespace LtmVr
             };
         }
 
+        private static ContextStyle CreateOutcomeStyle()
+        {
+            return new ContextStyle
+            {
+                styleVersion = CurrentContextStyleVersion,
+                label = "Outcome_ForwardArrowheads",
+                wallPattern = ContextWallPattern.ForwardArrowheads,
+                patternScaleCm = 10.0f,
+                patternDutyCycle = 0.5f,
+                featureRadiusFraction = 0.44f,
+                blueIntensity = 1.0f,
+            };
+        }
+
         public Transform GetSceneRoot(int sceneId, bool itiActive)
+        {
+            return GetSceneRoot(sceneId, itiActive, false);
+        }
+
+        public Transform GetSceneRoot(int sceneId, bool itiActive, bool outcomeActive)
         {
             if (itiActive && _itiRoot != null)
             {
                 return _itiRoot;
+            }
+
+            if (outcomeActive && _outcomeRoot != null)
+            {
+                return _outcomeRoot;
             }
 
             if (_sceneRoots.TryGetValue(sceneId, out Transform root))
@@ -197,9 +233,19 @@ namespace LtmVr
 
         public float GetSegmentLengthMeters(int sceneId, bool itiActive)
         {
+            return GetSegmentLengthMeters(sceneId, itiActive, false);
+        }
+
+        public float GetSegmentLengthMeters(int sceneId, bool itiActive, bool outcomeActive)
+        {
             if (itiActive)
             {
                 return CmToM(openingLengthCm);
+            }
+
+            if (outcomeActive)
+            {
+                return CmToM(outcomeLengthCm);
             }
 
             return sceneId == 0 ? CmToM(openingLengthCm) : CmToM(contextLengthCm);
@@ -219,11 +265,24 @@ namespace LtmVr
             {
                 yield return _itiRoot;
             }
+
+            if (_outcomeRoot != null)
+            {
+                yield return _outcomeRoot;
+            }
         }
 
         private Transform BuildSegment(int sceneId, ContextStyle style, float lengthCm)
         {
             string name = sceneId == 0 ? "Scene_Opening" : $"Scene_Context_{sceneId}";
+            return BuildSegment(style, lengthCm, name);
+        }
+
+        private Transform BuildSegment(
+            ContextStyle style,
+            float lengthCm,
+            string name)
+        {
             GameObject root = new GameObject(name);
             root.transform.SetParent(transform, false);
 
@@ -260,6 +319,59 @@ namespace LtmVr
                 new Vector3(widthM * 0.5f, wallHeightM * 0.5f, lengthM * 0.5f),
                 new Vector3(wallThicknessM, wallHeightM, lengthM),
                 wallMaterial
+            );
+
+            return root.transform;
+        }
+
+        private Transform BuildOutcomeScene()
+        {
+            string name = $"Scene_Outcome_{outcomeSceneId}";
+            GameObject root = new GameObject(name);
+            root.transform.SetParent(transform, false);
+
+            float lengthM = CmToM(outcomeLengthCm);
+            float widthM = CmToM(corridorWidthCm);
+            float wallHeightM = CmToM(wallHeightCm);
+            float wallThicknessM = 0.05f;
+
+            Material blackMaterial = BuildSolidMaterial(Color.black);
+            Material arrowMaterial = BuildSolidMaterial(Blue(outcomeStyle.blueIntensity));
+
+            CreatePrimitive(
+                PrimitiveType.Cube,
+                $"{name}_Floor",
+                root.transform,
+                new Vector3(0.0f, -0.01f, lengthM * 0.5f),
+                new Vector3(widthM, 0.02f, lengthM),
+                blackMaterial
+            );
+
+            CreatePrimitive(
+                PrimitiveType.Cube,
+                $"{name}_Wall_Left",
+                root.transform,
+                new Vector3(-widthM * 0.5f, wallHeightM * 0.5f, lengthM * 0.5f),
+                new Vector3(wallThicknessM, wallHeightM, lengthM),
+                blackMaterial
+            );
+
+            CreatePrimitive(
+                PrimitiveType.Cube,
+                $"{name}_Wall_Right",
+                root.transform,
+                new Vector3(widthM * 0.5f, wallHeightM * 0.5f, lengthM * 0.5f),
+                new Vector3(wallThicknessM, wallHeightM, lengthM),
+                blackMaterial
+            );
+
+            AddOutcomeArrowheads(
+                root.transform,
+                widthM,
+                wallHeightM,
+                lengthM,
+                wallThicknessM,
+                arrowMaterial
             );
 
             return root.transform;
@@ -305,6 +417,95 @@ namespace LtmVr
             {
                 renderer.sharedMaterial = material;
             }
+        }
+
+        private void AddOutcomeArrowheads(
+            Transform parent,
+            float widthM,
+            float wallHeightM,
+            float lengthM,
+            float wallThicknessM,
+            Material arrowMaterial)
+        {
+            float spacingM = Mathf.Max(0.05f, CmToM(outcomeArrowSpacingCm));
+            float arrowLengthM = Mathf.Clamp(
+                CmToM(outcomeArrowLengthCm),
+                0.03f,
+                Mathf.Max(0.03f, spacingM * 0.85f)
+            );
+            float arrowHeightM = Mathf.Clamp(
+                CmToM(outcomeArrowHeightCm),
+                0.03f,
+                Mathf.Max(0.03f, wallHeightM * 0.85f)
+            );
+            float centerY = wallHeightM * 0.5f;
+            float insetM = wallThicknessM * 0.5f + 0.002f;
+
+            for (float z = spacingM * 0.5f; z < lengthM; z += spacingM)
+            {
+                CreateWallArrowhead(
+                    "Outcome_Arrow_Left",
+                    parent,
+                    -widthM * 0.5f + insetM,
+                    centerY,
+                    z,
+                    arrowLengthM,
+                    arrowHeightM,
+                    true,
+                    arrowMaterial
+                );
+
+                CreateWallArrowhead(
+                    "Outcome_Arrow_Right",
+                    parent,
+                    widthM * 0.5f - insetM,
+                    centerY,
+                    z,
+                    arrowLengthM,
+                    arrowHeightM,
+                    false,
+                    arrowMaterial
+                );
+            }
+        }
+
+        private void CreateWallArrowhead(
+            string objectName,
+            Transform parent,
+            float x,
+            float centerY,
+            float centerZ,
+            float arrowLengthM,
+            float arrowHeightM,
+            bool leftWall,
+            Material arrowMaterial)
+        {
+            float tipZ = centerZ + arrowLengthM * 0.5f;
+            float baseZ = centerZ - arrowLengthM * 0.5f;
+            float upperY = centerY + arrowHeightM * 0.5f;
+            float lowerY = centerY - arrowHeightM * 0.5f;
+
+            Vector3 tip = new Vector3(x, centerY, tipZ);
+            Vector3 upperBase = new Vector3(x, upperY, baseZ);
+            Vector3 lowerBase = new Vector3(x, lowerY, baseZ);
+
+            Mesh mesh = new Mesh
+            {
+                name = objectName,
+                hideFlags = HideFlags.DontSave,
+            };
+            mesh.vertices = leftWall
+                ? new[] { tip, lowerBase, upperBase }
+                : new[] { tip, upperBase, lowerBase };
+            mesh.triangles = new[] { 0, 1, 2 };
+            mesh.RecalculateBounds();
+            mesh.RecalculateNormals();
+            _generatedMeshes.Add(mesh);
+
+            GameObject go = new GameObject($"{objectName}_{centerZ:F2}");
+            go.transform.SetParent(parent, false);
+            go.AddComponent<MeshFilter>().sharedMesh = mesh;
+            go.AddComponent<MeshRenderer>().sharedMaterial = arrowMaterial;
         }
 
         private Material BuildSolidMaterial(Color color)
@@ -366,13 +567,13 @@ namespace LtmVr
             Texture2D texture = new Texture2D(size, size, TextureFormat.RGBA32, false)
             {
                 name = SanitizeTextureName(style),
-                filterMode = FilterMode.Point,
+                filterMode = style.wallPattern == ContextWallPattern.LowSpatialSmudges
+                    ? FilterMode.Bilinear
+                    : FilterMode.Point,
                 wrapMode = TextureWrapMode.Repeat,
                 hideFlags = HideFlags.DontSave,
             };
 
-            Color blue = Blue(style.blueIntensity);
-            Color black = Color.black;
             Color[] pixels = new Color[size * size];
 
             for (int y = 0; y < size; y++)
@@ -381,8 +582,9 @@ namespace LtmVr
                 for (int x = 0; x < size; x++)
                 {
                     float u = (x + 0.5f) / size;
-                    bool isBlue = IsPatternBlue(style, u, v);
-                    pixels[y * size + x] = isBlue ? blue : black;
+                    float intensity = PatternBlueIntensity(style, u, v)
+                        * Mathf.Clamp01(style.blueIntensity);
+                    pixels[y * size + x] = Blue(intensity);
                 }
             }
 
@@ -408,38 +610,75 @@ namespace LtmVr
             return texture;
         }
 
-        private static bool IsPatternBlue(ContextStyle style, float u, float v)
+        private static float PatternBlueIntensity(ContextStyle style, float u, float v)
         {
             float duty = Mathf.Clamp(style.patternDutyCycle, 0.05f, 0.95f);
             float radius = Mathf.Clamp(style.featureRadiusFraction, 0.05f, 0.48f);
-            bool isBlue;
+            float intensity;
 
             switch (style.wallPattern)
             {
                 case ContextWallPattern.Solid:
-                    isBlue = true;
+                    intensity = 1.0f;
                     break;
                 case ContextWallPattern.VerticalGratings:
-                    isBlue = u < duty;
+                    intensity = u < duty ? 1.0f : 0.0f;
                     break;
                 case ContextWallPattern.HorizontalGratings:
-                    isBlue = v < duty;
+                    intensity = v < duty ? 1.0f : 0.0f;
                     break;
                 case ContextWallPattern.Checkerboard:
-                    isBlue = (((int)(u * 2.0f) + (int)(v * 2.0f)) % 2) == 0;
+                    intensity = (((int)(u * 2.0f) + (int)(v * 2.0f)) % 2) == 0
+                        ? 1.0f
+                        : 0.0f;
                     break;
                 case ContextWallPattern.PolkaDots:
-                    isBlue = Vector2.Distance(new Vector2(u, v), new Vector2(0.5f, 0.5f)) <= radius;
+                    intensity = Vector2.Distance(new Vector2(u, v), new Vector2(0.5f, 0.5f)) <= radius
+                        ? 1.0f
+                        : 0.0f;
                     break;
                 case ContextWallPattern.Diamonds:
-                    isBlue = Mathf.Abs(u - 0.5f) + Mathf.Abs(v - 0.5f) <= radius;
+                    intensity = Mathf.Abs(u - 0.5f) + Mathf.Abs(v - 0.5f) <= radius
+                        ? 1.0f
+                        : 0.0f;
+                    break;
+                case ContextWallPattern.LowSpatialSmudges:
+                    intensity = LowSpatialSmudgeIntensity(u, v);
+                    break;
+                case ContextWallPattern.ForwardArrowheads:
+                    intensity = ForwardArrowheadIntensity(u, v);
                     break;
                 default:
-                    isBlue = false;
+                    intensity = 0.0f;
                     break;
             }
 
-            return style.invertPattern ? !isBlue : isBlue;
+            return style.invertPattern ? 1.0f - intensity : intensity;
+        }
+
+        private static float LowSpatialSmudgeIntensity(float u, float v)
+        {
+            float twoPi = Mathf.PI * 2.0f;
+            float value = 0.50f;
+            value += 0.22f * Mathf.Sin(twoPi * (u + 0.08f));
+            value += 0.18f * Mathf.Cos(twoPi * (v + 0.31f));
+            value += 0.16f * Mathf.Sin(twoPi * (u + v + 0.17f));
+            value += 0.10f * Mathf.Cos(twoPi * (2.0f * u - v + 0.43f));
+            return Mathf.SmoothStep(0.12f, 0.88f, Mathf.Clamp01(value));
+        }
+
+        private static float ForwardArrowheadIntensity(float u, float v)
+        {
+            const float baseU = 0.12f;
+            const float tipU = 0.88f;
+            if (u < baseU || u > tipU)
+            {
+                return 0.0f;
+            }
+
+            float normalizedU = Mathf.InverseLerp(baseU, tipU, u);
+            float halfHeight = Mathf.Lerp(0.42f, 0.0f, normalizedU);
+            return Mathf.Abs(v - 0.5f) <= halfHeight ? 1.0f : 0.0f;
         }
 
         private Shader GetContextShader()
@@ -562,6 +801,12 @@ namespace LtmVr
                 DestroyUnityObject(_generatedTextures[i]);
             }
             _generatedTextures.Clear();
+
+            for (int i = 0; i < _generatedMeshes.Count; i++)
+            {
+                DestroyUnityObject(_generatedMeshes[i]);
+            }
+            _generatedMeshes.Clear();
         }
 
         private static void DestroyUnityObject(UnityEngine.Object unityObject)

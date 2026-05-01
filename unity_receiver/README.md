@@ -6,18 +6,19 @@ This folder contains sample Unity C# scripts for the rendering computer.
 
 - `Assets/Scripts/VrUdpPacket.cs`: Parses 16-byte UDP packets from RPi5
 - `Assets/Scripts/VrUdpReceiver.cs`: Background UDP listener (port 5005 by default)
-- `Assets/Scripts/VrContextGenerator.cs`: Procedurally builds opening + 3 context scenes + ITI scene with blue-on-black wall textures
+- `Assets/Scripts/VrContextGenerator.cs`: Procedurally builds opening + 3 context scenes + outcome + ITI scene with blue-on-black wall textures
 - `Assets/Scripts/VrRenderController.cs`: Activates scene + updates rig position from latest packet
 
 ## Packet Contract
 
 - Size: 16 bytes
 - Layout: `<uint32 seq><float32 position_cm><uint8 scene_id><uint8 flags><6 padding bytes>`
-- `scene_id`: `0` opening, `1..3` context IDs
+- `scene_id`: `0` opening, `1..3` context IDs, `4` outcome by default
 - `flags` bitmask:
   - bit0: teleport event
   - bit1: ITI active
   - bit2: freeze
+  - bit3: outcome zone active
 
 ## Unity Setup
 
@@ -36,6 +37,6 @@ This folder contains sample Unity C# scripts for the rendering computer.
 ## Notes
 
 - The renderer uses only the newest packet and does not queue old packets.
-- Scene 0 is used for opening corridor; ITI uses a separate black scene when the ITI flag is set.
+- Scene 0 is used for the opening corridor; ITI uses a separate black scene when the ITI flag is set; outcome uses a separate scene when the outcome flag is set.
 - The context generator creates its own runtime materials and procedural textures. Leave `Material Template` empty and keep `Use Material Template Shader` off unless you have a known-good unlit shader for your render pipeline.
-- Default scene cues are all blue on black: opening diamonds, context 1 vertical gratings, context 2 checkerboard, and context 3 polka dots.
+- Default scene cues are all blue on black: opening low-spatial smudges, context 1 vertical gratings, context 2 checkerboard, context 3 polka dots, and outcome arrowheads pointing down the corridor.

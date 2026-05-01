@@ -24,6 +24,7 @@ class TTLEvent(str, Enum):
     CONTEXT_ENTRY = "context_entry"
     REWARD = "reward"
     AIRPUFF = "airpuff"
+    OUTCOME_START = "outcome_start"
     LICK_ONSET = "lick_onset"
     ITI_START = "iti_start"
 

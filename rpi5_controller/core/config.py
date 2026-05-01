@@ -217,6 +217,11 @@ def default_task_events() -> dict[str, tuple[TaskActionConfig, ...]]:
             {"type": "airpuff"},
             {"type": "ttl_pulse", "event": TTLEvent.AIRPUFF.value},
         ],
+        "outcome_start": [
+            {"type": "stop_audio"},
+            {"type": "reset_segment"},
+            {"type": "teleport"},
+        ],
         "iti_start": [
             {"type": "stop_audio"},
             {"type": "reset_segment"},
@@ -249,6 +254,7 @@ class PinMap:
     ttl_airpuff: int = 21
     ttl_lick: int = 22
     ttl_iti_start: int = 23
+    ttl_outcome_start: int = 24
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "PinMap":
@@ -291,6 +297,8 @@ class SessionConfig:
     opening_corridor_length_cm: float = 60.0
     context_zone_length_cm: float = 120.0
     reward_zone_position_cm: float = 100.0
+    outcome_zone_duration_s: float = 1.0
+    outcome_scene_id: int = 4
     wheel_diameter_cm: float = 20.0
     encoder_cpr: int = 1024
     speed_alpha: float = 0.2
@@ -352,6 +360,8 @@ class SessionConfig:
             ),
             context_zone_length_cm=float(data.get("context_zone_length_cm", 120.0)),
             reward_zone_position_cm=float(data.get("reward_zone_position_cm", 100.0)),
+            outcome_zone_duration_s=float(data.get("outcome_zone_duration_s", 1.0)),
+            outcome_scene_id=int(data.get("outcome_scene_id", 4)),
             wheel_diameter_cm=float(data.get("wheel_diameter_cm", 20.0)),
             encoder_cpr=int(data.get("encoder_cpr", 1024)),
             speed_alpha=float(data.get("speed_alpha", 0.2)),
@@ -428,6 +438,10 @@ class SessionConfig:
             raise ValueError(
                 "reward_zone_position_cm must be > 0 and <= context_zone_length_cm"
             )
+        if self.outcome_zone_duration_s <= 0:
+            raise ValueError("outcome_zone_duration_s must be > 0")
+        if not (0 <= self.outcome_scene_id <= 255):
+            raise ValueError("outcome_scene_id must be in [0, 255]")
         if self.wheel_diameter_cm <= 0:
             raise ValueError("wheel_diameter_cm must be > 0")
         if self.encoder_cpr <= 0:
