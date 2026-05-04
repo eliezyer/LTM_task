@@ -70,6 +70,8 @@ Open the session JSON in `configs/` and edit the fields you need. Common fields:
 | `outcome_zone_duration_s` | Duration of the outcome scene/TTL hold. |
 | `outcome_scene_id` | Unity scene ID during the outcome zone. |
 | `wheel_diameter_cm`, `encoder_cpr`, `speed_alpha` | Encoder decoding and speed smoothing. |
+| `invert_encoder` | Set to `true` if wheel movement prints negative position/count changes. |
+| `task_status_interval_s` | How often the terminal and `.events.jsonl` log receive status updates during a run. |
 | `udp_target_ip`, `udp_target_port` | Unity receiver target. Defaults expect Unity at `192.168.10.2:5005`. |
 | `serial_port`, `serial_baud` | Teensy encoder serial connection. |
 | `rt_hz` | Main controller loop rate. |

@@ -74,6 +74,12 @@ class BehaviorSessionRunner:
         self._seq_num = 0
         self._tick_counter = 0
         self._encoder_count = 0
+        self._raw_encoder_count: int | None = None
+        self._packets_received = 0
+        self._last_packet_monotonic_s: float | None = None
+        self._last_packet_timestamp_ms: int | None = None
+        self._last_status_log_s: float | None = None
+        self._last_status_encoder_count: int | None = None
 
         self._gpio = MockGPIOBackend() if use_mock_hardware else RPiGPIOBackend()
         self._encoder_reader = self._build_encoder_reader()
@@ -122,6 +128,8 @@ class BehaviorSessionRunner:
 
         start_now_s = self.ticker.monotonic_s()
         session_start_s = start_now_s
+        self._last_status_log_s = session_start_s
+        self._last_status_encoder_count = self._encoder_count
         started = self.state_machine.start_session(start_now_s)
         self._process_commands(started.commands, start_now_s)
         self._log_task_event(
@@ -166,9 +174,7 @@ class BehaviorSessionRunner:
                     stop_reason = "max_seconds"
                     break
 
-                packet = self._encoder_reader.read_latest_packet()
-                if packet is not None:
-                    self._encoder_count = packet.encoder_count
+                self._read_latest_encoder_packet(now_s)
 
                 segment_position_cm = self.position_decoder.segment_position_cm(
                     self._encoder_count
@@ -227,6 +233,13 @@ class BehaviorSessionRunner:
                 self._log_buffer.push(log_entry)
 
                 self._tick_counter += 1
+                self._log_status_if_due(
+                    now_s=now_s,
+                    session_start_s=session_start_s,
+                    tick_out=tick_out,
+                    segment_position_cm=segment_position_cm,
+                    speed_cm_s=speed_cm_s,
+                )
                 if self.state_machine.session_complete:
                     stop_reason = "session_complete"
                     break
@@ -263,6 +276,65 @@ class BehaviorSessionRunner:
             else:
                 hw_commands.append(cmd)
         return self._executor.execute(hw_commands, now_s)
+
+    def _read_latest_encoder_packet(self, now_s: float) -> None:
+        packet = self._encoder_reader.read_latest_packet()
+        if packet is None:
+            return
+
+        self._raw_encoder_count = packet.encoder_count
+        adjusted_count = (
+            -packet.encoder_count if self.config.invert_encoder else packet.encoder_count
+        )
+        self._encoder_count = self._normalize_encoder_count(adjusted_count)
+        self._packets_received += 1
+        self._last_packet_monotonic_s = now_s
+        self._last_packet_timestamp_ms = packet.timestamp_ms
+
+    @staticmethod
+    def _normalize_encoder_count(count: int) -> int:
+        return (count + 0x8000) % 0x10000 - 0x8000
+
+    def _log_status_if_due(
+        self,
+        *,
+        now_s: float,
+        session_start_s: float,
+        tick_out,
+        segment_position_cm: float,
+        speed_cm_s: float,
+    ) -> None:
+        if self._last_status_log_s is None:
+            self._last_status_log_s = now_s
+            self._last_status_encoder_count = self._encoder_count
+            return
+
+        if now_s - self._last_status_log_s < self.config.task_status_interval_s:
+            return
+
+        reason = None
+        if self._packets_received == 0:
+            reason = "no_encoder_packets"
+        elif (
+            self._last_status_encoder_count is not None
+            and self._encoder_count == self._last_status_encoder_count
+        ):
+            reason = "no_encoder_delta_since_last_status"
+        elif segment_position_cm < 0:
+            reason = "negative_position_check_invert_encoder"
+
+        self._log_task_event(
+            "status",
+            now_s=now_s,
+            session_start_s=session_start_s,
+            tick_out=tick_out,
+            segment_position_cm=segment_position_cm,
+            speed_cm_s=speed_cm_s,
+            commands=[],
+            reason=reason,
+        )
+        self._last_status_log_s = now_s
+        self._last_status_encoder_count = self._encoder_count
 
     def _send_udp(self, position_cm: float, scene_id: int, flags: UdpFlags) -> None:
         packet = UdpPositionPacket(
@@ -466,6 +538,7 @@ class BehaviorSessionRunner:
             "speed_cm_s": round(float(speed_cm_s), 6),
             "scene_id": tick_out.scene_id,
             "flags": int(tick_out.flags),
+            "encoder": self._encoder_payload(now_s),
             "commands": [self._command_payload(command) for command in commands],
         }
         if reason is not None:
@@ -499,11 +572,34 @@ class BehaviorSessionRunner:
                 "speed_cm_s": None,
                 "scene_id": None,
                 "flags": None,
+                "encoder": self._encoder_payload(now_s),
                 "commands": [],
                 "reason": reason,
                 "trials_completed": self.state_machine.trials_completed,
             }
         )
+
+    def _encoder_payload(self, now_s: float) -> dict[str, Any]:
+        last_packet_age_s = None
+        if self._last_packet_monotonic_s is not None:
+            last_packet_age_s = round(now_s - self._last_packet_monotonic_s, 6)
+
+        delta_since_status = None
+        if self._last_status_encoder_count is not None:
+            delta_since_status = self._encoder_count - self._last_status_encoder_count
+
+        return {
+            "raw_count": self._raw_encoder_count,
+            "count": self._encoder_count,
+            "delta_count_since_last_status": delta_since_status,
+            "invert_encoder": self.config.invert_encoder,
+            "packets_received": self._packets_received,
+            "packets_arriving": self._packets_received > 0,
+            "last_packet_age_s": last_packet_age_s,
+            "last_packet_timestamp_ms": self._last_packet_timestamp_ms,
+            "serial_port": self.config.serial_port,
+            "serial_baud": self.config.serial_baud,
+        }
 
     def _context_payload(self, context_id: int) -> dict[str, Any] | None:
         if context_id not in self.config.contexts:

@@ -118,10 +118,17 @@
       "type": "integer",
       "minimum": 1
     },
+    "invert_encoder": {
+      "type": "boolean"
+    },
     "speed_alpha": {
       "type": "number",
       "exclusiveMinimum": 0,
       "maximum": 1
+    },
+    "task_status_interval_s": {
+      "type": "number",
+      "exclusiveMinimum": 0
     },
     "udp_target_ip": {
       "type": "string"

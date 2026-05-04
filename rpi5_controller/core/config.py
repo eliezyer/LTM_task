@@ -301,7 +301,9 @@ class SessionConfig:
     outcome_scene_id: int = 4
     wheel_diameter_cm: float = 20.0
     encoder_cpr: int = 1024
+    invert_encoder: bool = False
     speed_alpha: float = 0.2
+    task_status_interval_s: float = 1.0
     udp_target_ip: str = "192.168.10.2"
     udp_target_port: int = 5005
     serial_port: str = "/dev/serial0"
@@ -364,7 +366,9 @@ class SessionConfig:
             outcome_scene_id=int(data.get("outcome_scene_id", 4)),
             wheel_diameter_cm=float(data.get("wheel_diameter_cm", 20.0)),
             encoder_cpr=int(data.get("encoder_cpr", 1024)),
+            invert_encoder=bool(data.get("invert_encoder", False)),
             speed_alpha=float(data.get("speed_alpha", 0.2)),
+            task_status_interval_s=float(data.get("task_status_interval_s", 1.0)),
             udp_target_ip=str(data.get("udp_target_ip", "192.168.10.2")),
             udp_target_port=int(data.get("udp_target_port", 5005)),
             serial_port=str(data.get("serial_port", "/dev/serial0")),
@@ -448,6 +452,8 @@ class SessionConfig:
             raise ValueError("encoder_cpr must be > 0")
         if not (0.0 < self.speed_alpha <= 1.0):
             raise ValueError("speed_alpha must be in (0, 1]")
+        if self.task_status_interval_s <= 0:
+            raise ValueError("task_status_interval_s must be > 0")
         if self.rt_hz <= 0:
             raise ValueError("rt_hz must be > 0")
         if self.ttl_pulse_width_ms <= 0:

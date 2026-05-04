@@ -82,10 +82,25 @@ def _format_terminal_event(event: dict[str, Any]) -> str:
     if isinstance(distance, dict) and distance.get("segment_position_cm") is not None:
         pos_label = f"{float(distance['segment_position_cm']):.2f}cm"
 
+    encoder_label = "enc=-"
+    encoder = event.get("encoder")
+    if isinstance(encoder, dict):
+        count = encoder.get("count")
+        raw_count = encoder.get("raw_count")
+        delta_count = encoder.get("delta_count_since_last_status")
+        packets = encoder.get("packets_received")
+        age = encoder.get("last_packet_age_s")
+        age_label = "-" if age is None else f"{float(age):.3f}s"
+        encoder_label = (
+            f"enc={count} raw={raw_count} d={delta_count} "
+            f"pkts={packets} age={age_label}"
+        )
+
     reason = event.get("reason")
     reason_label = f" reason={reason}" if reason else ""
     return (
         f"[task] t={clock_s:8.3f}s {event_name:<16} "
         f"trial={trial_label} state={state} ctx={context_id} "
-        f"scene={scene_id} outcome={outcome_label} pos={pos_label}{reason_label}"
+        f"scene={scene_id} outcome={outcome_label} pos={pos_label} "
+        f"{encoder_label}{reason_label}"
     )
