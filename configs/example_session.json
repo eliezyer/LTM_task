@@ -10,6 +10,7 @@
     "mean_s": 3.0,
     "min_s": 2.0
   },
+  "invert_encoder": true,
   "num_trials": 50,
   "opening_corridor_length_cm": 60.0,
   "outcome_scene_id": 4,

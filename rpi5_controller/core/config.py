@@ -301,7 +301,7 @@ class SessionConfig:
     outcome_scene_id: int = 4
     wheel_diameter_cm: float = 20.0
     encoder_cpr: int = 1024
-    invert_encoder: bool = False
+    invert_encoder: bool = True
     speed_alpha: float = 0.2
     task_status_interval_s: float = 1.0
     udp_target_ip: str = "192.168.10.2"
@@ -366,7 +366,7 @@ class SessionConfig:
             outcome_scene_id=int(data.get("outcome_scene_id", 4)),
             wheel_diameter_cm=float(data.get("wheel_diameter_cm", 20.0)),
             encoder_cpr=int(data.get("encoder_cpr", 1024)),
-            invert_encoder=bool(data.get("invert_encoder", False)),
+            invert_encoder=bool(data.get("invert_encoder", True)),
             speed_alpha=float(data.get("speed_alpha", 0.2)),
             task_status_interval_s=float(data.get("task_status_interval_s", 1.0)),
             udp_target_ip=str(data.get("udp_target_ip", "192.168.10.2")),

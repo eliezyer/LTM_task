@@ -658,7 +658,10 @@ class BehaviorSessionRunner:
                 math.pi * self.config.wheel_diameter_cm
             )
             mock_speed_cm_s = max(5.0, self.config.speed_threshold_cm_s + 12.0)
-            return SyntheticEncoderReader(counts_per_second=counts_per_cm * mock_speed_cm_s)
+            counts_per_second = counts_per_cm * mock_speed_cm_s
+            if self.config.invert_encoder:
+                counts_per_second *= -1.0
+            return SyntheticEncoderReader(counts_per_second=counts_per_second)
         return SerialEncoderReader(
             port=self.config.serial_port,
             baudrate=self.config.serial_baud,
