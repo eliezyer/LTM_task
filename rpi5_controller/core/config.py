@@ -301,7 +301,7 @@ class SessionConfig:
     outcome_scene_id: int = 4
     wheel_diameter_cm: float = 20.0
     encoder_cpr: int = 1024
-    invert_encoder: bool = True
+    invert_encoder: bool = False
     speed_alpha: float = 0.2
     task_status_interval_s: float = 1.0
     udp_target_ip: str = "192.168.10.2"
