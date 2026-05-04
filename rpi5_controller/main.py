@@ -95,6 +95,7 @@ def main() -> None:
                 "clock_overruns": result.clock_overruns,
                 "dropped_log_entries": result.dropped_log_entries,
                 "log_binary_path": str(result.log_binary_path),
+                "event_log_path": str(result.event_log_path),
                 "log_metadata_path": str(result.log_metadata_path),
             },
             indent=2,

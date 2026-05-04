@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from rpi5_controller.core.config import SessionConfig
 from rpi5_controller.runtime.session_runner import BehaviorSessionRunner
 
 
-def test_session_runner_completes_with_mock_hardware(tmp_path: Path) -> None:
+def test_session_runner_completes_with_mock_hardware(tmp_path: Path, capsys) -> None:
     cfg = SessionConfig.from_dict(
         {
             "animal_id": "m01",
@@ -41,4 +42,23 @@ def test_session_runner_completes_with_mock_hardware(tmp_path: Path) -> None:
     assert result.trials_completed == 1
     assert result.log_binary_path.exists()
     assert result.log_metadata_path.exists()
+    assert result.event_log_path.exists()
     assert result.total_ticks > 0
+
+    events = [
+        json.loads(line)
+        for line in result.event_log_path.read_text(encoding="utf-8").splitlines()
+    ]
+    event_names = [event["event"] for event in events]
+    assert "trial_start" in event_names
+    assert "context_entry" in event_names
+    assert "outcome_start" in event_names
+    assert "trial_complete" in event_names
+    assert all("clock_s" in event for event in events)
+    trial_start = next(event for event in events if event["event"] == "trial_start")
+    assert trial_start["trial_index"] == 1
+    assert trial_start["context"]["id"] in {1, 2, 3}
+    assert "expected_outcome" in trial_start
+    stdout = capsys.readouterr().out
+    assert "[task]" in stdout
+    assert "trial_start" in stdout

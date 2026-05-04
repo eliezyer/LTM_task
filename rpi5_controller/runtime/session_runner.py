@@ -8,7 +8,7 @@ from typing import Any
 
 from rpi5_controller.core.commands import Command, CommandType
 from rpi5_controller.core.config import SessionConfig
-from rpi5_controller.core.enums import UdpFlags
+from rpi5_controller.core.enums import BehaviorState, SessionType, UdpFlags
 from rpi5_controller.core.packets import UdpPositionPacket
 from rpi5_controller.core.position import PositionDecoder, SpeedEstimator
 from rpi5_controller.core.state_machine import BehaviorStateMachine, TickInput
@@ -30,6 +30,7 @@ from rpi5_controller.logging.writer import (
     build_log_paths,
     finalize_log_artifacts,
 )
+from rpi5_controller.logging.trial_events import TrialEventLogger
 from rpi5_controller.runtime.clock import RealtimeTicker
 
 
@@ -43,6 +44,7 @@ class SessionResult:
     clock_overruns: int
     log_binary_path: Path
     log_metadata_path: Path
+    event_log_path: Path
 
 
 class BehaviorSessionRunner:
@@ -98,6 +100,7 @@ class BehaviorSessionRunner:
 
         self._log_buffer: ThreadSafeRingBuffer[LogEntry] = ThreadSafeRingBuffer(maxlen=250_000)
         self._log_writer: AsyncLogWriter | None = None
+        self._event_logger: TrialEventLogger | None = None
 
     def run(self) -> SessionResult:
         session_tag = self._build_session_tag()
@@ -114,10 +117,35 @@ class BehaviorSessionRunner:
         self._log_writer = AsyncLogWriter(self._log_buffer, log_paths.tmp_binary_path)
         self._log_writer.start()
         AsyncLogWriter.write_metadata(log_paths.tmp_metadata_path, metadata)
+        self._event_logger = TrialEventLogger(log_paths.tmp_event_path)
+        self._event_logger.start()
 
         start_now_s = self.ticker.monotonic_s()
+        session_start_s = start_now_s
         started = self.state_machine.start_session(start_now_s)
         self._process_commands(started.commands, start_now_s)
+        self._log_task_event(
+            "session_start",
+            now_s=start_now_s,
+            session_start_s=session_start_s,
+            tick_out=started,
+            segment_position_cm=self.position_decoder.segment_position_cm(
+                self._encoder_count
+            ),
+            speed_cm_s=0.0,
+            commands=started.commands,
+        )
+        self._log_task_event(
+            "trial_start",
+            now_s=start_now_s,
+            session_start_s=session_start_s,
+            tick_out=started,
+            segment_position_cm=self.position_decoder.segment_position_cm(
+                self._encoder_count
+            ),
+            speed_cm_s=0.0,
+            commands=started.commands,
+        )
 
         # Broadcast initial scene state immediately before entering periodic loop.
         self._send_udp(
@@ -128,12 +156,14 @@ class BehaviorSessionRunner:
 
         start_monotonic_s = self.ticker.monotonic_s()
         self.ticker.start()
+        stop_reason = "unknown"
 
         try:
             while True:
                 now_s = self.ticker.monotonic_s()
                 elapsed_s = now_s - start_monotonic_s
                 if self.max_seconds is not None and elapsed_s >= self.max_seconds:
+                    stop_reason = "max_seconds"
                     break
 
                 packet = self._encoder_reader.read_latest_packet()
@@ -146,6 +176,10 @@ class BehaviorSessionRunner:
                 speed_cm_s = self.speed_estimator.update(self._encoder_count, now_s)
                 lick_level, lick_onset, _ = self._lick.sample()
 
+                prev_state = self.state_machine.state
+                prev_trial_index = self.state_machine.current_trial_index
+                prev_context_id = self.state_machine.current_context
+
                 tick_out = self.state_machine.tick(
                     TickInput(
                         now_s=now_s,
@@ -155,6 +189,17 @@ class BehaviorSessionRunner:
                     )
                 )
                 exec_result = self._process_commands(tick_out.commands, now_s)
+                self._log_state_transition_events(
+                    previous_state=prev_state,
+                    previous_trial_index=prev_trial_index,
+                    previous_context_id=prev_context_id,
+                    now_s=now_s,
+                    session_start_s=session_start_s,
+                    tick_out=tick_out,
+                    segment_position_cm=segment_position_cm,
+                    speed_cm_s=speed_cm_s,
+                    commands=tick_out.commands,
+                )
 
                 segment_position_cm = self.position_decoder.segment_position_cm(
                     self._encoder_count
@@ -183,10 +228,16 @@ class BehaviorSessionRunner:
 
                 self._tick_counter += 1
                 if self.state_machine.session_complete:
+                    stop_reason = "session_complete"
                     break
 
                 self.ticker.wait_next()
         finally:
+            self._log_session_stop(
+                reason=stop_reason,
+                now_s=self.ticker.monotonic_s(),
+                session_start_s=session_start_s,
+            )
             self._shutdown(log_paths)
 
         duration_s = self.ticker.monotonic_s() - start_monotonic_s
@@ -199,6 +250,7 @@ class BehaviorSessionRunner:
             clock_overruns=self.ticker.overrun_count,
             log_binary_path=log_paths.final_binary_path,
             log_metadata_path=log_paths.final_metadata_path,
+            event_log_path=log_paths.final_event_path,
         )
 
     def _process_commands(self, commands: list[Command], now_s: float):
@@ -236,6 +288,274 @@ class BehaviorSessionRunner:
             "config": self.config.to_json_dict(),
         }
 
+    def _log_state_transition_events(
+        self,
+        *,
+        previous_state: BehaviorState,
+        previous_trial_index: int,
+        previous_context_id: int,
+        now_s: float,
+        session_start_s: float,
+        tick_out,
+        segment_position_cm: float,
+        speed_cm_s: float,
+        commands: list[Command],
+    ) -> None:
+        current_state = tick_out.state
+        if current_state == previous_state:
+            return
+
+        if previous_state == BehaviorState.OPENING_CORRIDOR and current_state == BehaviorState.CONTEXT_ZONE:
+            self._log_task_event(
+                "context_entry",
+                now_s=now_s,
+                session_start_s=session_start_s,
+                tick_out=tick_out,
+                segment_position_cm=segment_position_cm,
+                speed_cm_s=speed_cm_s,
+                commands=commands,
+            )
+            return
+
+        if previous_state == BehaviorState.CONTEXT_ZONE and current_state == BehaviorState.OUTCOME_ZONE:
+            self._log_task_event(
+                "outcome_start",
+                now_s=now_s,
+                session_start_s=session_start_s,
+                tick_out=tick_out,
+                segment_position_cm=segment_position_cm,
+                speed_cm_s=speed_cm_s,
+                commands=commands,
+                reason="reward_zone_reached",
+            )
+            return
+
+        if previous_state == BehaviorState.CONTEXT_ZONE and current_state == BehaviorState.ITI:
+            reason = "reward_zone_reached"
+            if segment_position_cm < self.config.reward_zone_position_cm:
+                reason = "stall_timeout"
+            elif self.config.session_type == SessionType.RETRIEVAL:
+                reason = "retrieval_suppressed_outcome"
+            elif not self._context_expected_outcome(previous_context_id)["events"]:
+                reason = "no_context_outcome"
+            self._log_task_event(
+                "iti_start",
+                now_s=now_s,
+                session_start_s=session_start_s,
+                tick_out=tick_out,
+                segment_position_cm=segment_position_cm,
+                speed_cm_s=speed_cm_s,
+                commands=commands,
+                reason=reason,
+            )
+            return
+
+        if previous_state == BehaviorState.OUTCOME_ZONE and current_state == BehaviorState.ITI:
+            self._log_task_event(
+                "iti_start",
+                now_s=now_s,
+                session_start_s=session_start_s,
+                tick_out=tick_out,
+                segment_position_cm=segment_position_cm,
+                speed_cm_s=speed_cm_s,
+                commands=commands,
+                reason="outcome_complete",
+            )
+            return
+
+        if previous_state == BehaviorState.ITI and current_state == BehaviorState.OPENING_CORRIDOR:
+            self._log_task_event(
+                "trial_complete",
+                now_s=now_s,
+                session_start_s=session_start_s,
+                tick_out=tick_out,
+                segment_position_cm=segment_position_cm,
+                speed_cm_s=speed_cm_s,
+                commands=commands,
+                trial_index=previous_trial_index,
+                context_id=previous_context_id,
+            )
+            self._log_task_event(
+                "trial_start",
+                now_s=now_s,
+                session_start_s=session_start_s,
+                tick_out=tick_out,
+                segment_position_cm=segment_position_cm,
+                speed_cm_s=speed_cm_s,
+                commands=commands,
+            )
+            return
+
+        if previous_state == BehaviorState.ITI and current_state == BehaviorState.IDLE:
+            self._log_task_event(
+                "trial_complete",
+                now_s=now_s,
+                session_start_s=session_start_s,
+                tick_out=tick_out,
+                segment_position_cm=segment_position_cm,
+                speed_cm_s=speed_cm_s,
+                commands=commands,
+                trial_index=previous_trial_index,
+                context_id=previous_context_id,
+            )
+            self._log_task_event(
+                "session_complete",
+                now_s=now_s,
+                session_start_s=session_start_s,
+                tick_out=tick_out,
+                segment_position_cm=segment_position_cm,
+                speed_cm_s=speed_cm_s,
+                commands=commands,
+                trial_index=previous_trial_index,
+                context_id=previous_context_id,
+            )
+            return
+
+        self._log_task_event(
+            "state_transition",
+            now_s=now_s,
+            session_start_s=session_start_s,
+            tick_out=tick_out,
+            segment_position_cm=segment_position_cm,
+            speed_cm_s=speed_cm_s,
+            commands=commands,
+            previous_state=previous_state,
+        )
+
+    def _log_task_event(
+        self,
+        event_name: str,
+        *,
+        now_s: float,
+        session_start_s: float,
+        tick_out,
+        segment_position_cm: float,
+        speed_cm_s: float,
+        commands: list[Command],
+        reason: str | None = None,
+        trial_index: int | None = None,
+        context_id: int | None = None,
+        previous_state: BehaviorState | None = None,
+    ) -> None:
+        if self._event_logger is None:
+            return
+
+        resolved_trial_index = (
+            trial_index if trial_index is not None else self.state_machine.current_trial_index
+        )
+        resolved_context_id = context_id if context_id is not None else tick_out.context_id
+        context_payload = self._context_payload(resolved_context_id)
+        event = {
+            "event": event_name,
+            "clock_s": round(now_s - session_start_s, 6),
+            "clock_ms": int(round((now_s - session_start_s) * 1000.0)),
+            "monotonic_s": round(now_s, 6),
+            "trial_index": resolved_trial_index,
+            "num_trials": self.config.num_trials,
+            "state": tick_out.state.name.lower(),
+            "state_code": int(tick_out.state),
+            "previous_state": previous_state.name.lower() if previous_state else None,
+            "context": context_payload,
+            "expected_outcome": self._context_expected_outcome(resolved_context_id),
+            "distance": {
+                "segment_position_cm": round(float(segment_position_cm), 6),
+                "opening_corridor_length_cm": self.config.opening_corridor_length_cm,
+                "context_zone_length_cm": self.config.context_zone_length_cm,
+                "reward_zone_position_cm": self.config.reward_zone_position_cm,
+            },
+            "speed_cm_s": round(float(speed_cm_s), 6),
+            "scene_id": tick_out.scene_id,
+            "flags": int(tick_out.flags),
+            "commands": [self._command_payload(command) for command in commands],
+        }
+        if reason is not None:
+            event["reason"] = reason
+        self._event_logger.log(event)
+
+    def _log_session_stop(
+        self,
+        *,
+        reason: str,
+        now_s: float,
+        session_start_s: float,
+    ) -> None:
+        if self._event_logger is None:
+            return
+        self._event_logger.log(
+            {
+                "event": "session_stop",
+                "clock_s": round(now_s - session_start_s, 6),
+                "clock_ms": int(round((now_s - session_start_s) * 1000.0)),
+                "monotonic_s": round(now_s, 6),
+                "trial_index": self.state_machine.current_trial_index,
+                "num_trials": self.config.num_trials,
+                "state": self.state_machine.state.name.lower(),
+                "state_code": int(self.state_machine.state),
+                "context": self._context_payload(self.state_machine.current_context),
+                "expected_outcome": self._context_expected_outcome(
+                    self.state_machine.current_context
+                ),
+                "distance": None,
+                "speed_cm_s": None,
+                "scene_id": None,
+                "flags": None,
+                "commands": [],
+                "reason": reason,
+                "trials_completed": self.state_machine.trials_completed,
+            }
+        )
+
+    def _context_payload(self, context_id: int) -> dict[str, Any] | None:
+        if context_id not in self.config.contexts:
+            return None
+        context = self.config.context_config(context_id)
+        return {
+            "id": context.id,
+            "scene_id": context.scene_id,
+            "audio_cue": context.audio_cue,
+            "identity_pulses": context.identity_pulses,
+            "reward_ms": context.reward_ms,
+            "airpuff_ms": context.airpuff_ms,
+            "outcome_events": list(context.resolved_outcome_events()),
+        }
+
+    def _context_expected_outcome(self, context_id: int) -> dict[str, Any]:
+        if context_id not in self.config.contexts:
+            return {"label": "none", "events": []}
+        context = self.config.context_config(context_id)
+        events = list(context.resolved_outcome_events())
+        if self.config.session_type == SessionType.RETRIEVAL:
+            return {
+                "label": "suppressed_retrieval",
+                "events": events,
+                "reward_ms": context.reward_ms,
+                "airpuff_ms": context.airpuff_ms,
+            }
+        if not events:
+            return {
+                "label": "none",
+                "events": [],
+                "reward_ms": context.reward_ms,
+                "airpuff_ms": context.airpuff_ms,
+            }
+        return {
+            "label": "+".join(events),
+            "events": events,
+            "reward_ms": context.reward_ms,
+            "airpuff_ms": context.airpuff_ms,
+        }
+
+    def _command_payload(self, command: Command) -> dict[str, Any]:
+        return {
+            "type": command.type.value,
+            "ttl_event": command.ttl_event.value if command.ttl_event else None,
+            "context_id": command.context_id,
+            "cue_id": command.cue_id,
+            "cue_ids": list(command.cue_ids) if command.cue_ids else None,
+            "duration_ms": command.duration_ms,
+            "pulse_count": command.pulse_count,
+        }
+
     def _build_encoder_reader(self) -> EncoderReader:
         if self.use_mock_hardware:
             counts_per_cm = self.config.encoder_cpr / (
@@ -251,6 +571,8 @@ class BehaviorSessionRunner:
     def _shutdown(self, log_paths) -> None:
         if self._log_writer is not None:
             self._log_writer.stop()
+        if self._event_logger is not None:
+            self._event_logger.close()
         finalize_log_artifacts(log_paths)
 
         self._executor.shutdown()

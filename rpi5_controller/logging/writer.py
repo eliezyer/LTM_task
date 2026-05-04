@@ -14,8 +14,10 @@ from rpi5_controller.logging.ring_buffer import ThreadSafeRingBuffer
 class LogPaths:
     tmp_binary_path: Path
     tmp_metadata_path: Path
+    tmp_event_path: Path
     final_binary_path: Path
     final_metadata_path: Path
+    final_event_path: Path
 
 
 class AsyncLogWriter:
@@ -63,8 +65,10 @@ def build_log_paths(
     return LogPaths(
         tmp_binary_path=tmp_base / f"{session_tag}.bin",
         tmp_metadata_path=tmp_base / f"{session_tag}.json",
+        tmp_event_path=tmp_base / f"{session_tag}.events.jsonl",
         final_binary_path=final_base / f"{session_tag}.bin",
         final_metadata_path=final_base / f"{session_tag}.json",
+        final_event_path=final_base / f"{session_tag}.events.jsonl",
     )
 
 
@@ -73,3 +77,4 @@ def finalize_log_artifacts(paths: LogPaths) -> None:
     paths.final_metadata_path.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(paths.tmp_binary_path, paths.final_binary_path)
     shutil.copy2(paths.tmp_metadata_path, paths.final_metadata_path)
+    shutil.copy2(paths.tmp_event_path, paths.final_event_path)
