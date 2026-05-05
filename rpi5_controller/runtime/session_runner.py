@@ -40,6 +40,7 @@ class SessionResult:
     total_ticks: int
     duration_s: float
     trials_completed: int
+    stop_reason: str
     dropped_log_entries: int
     clock_overruns: int
     log_binary_path: Path
@@ -75,6 +76,7 @@ class BehaviorSessionRunner:
         self._tick_counter = 0
         self._encoder_count = 0
         self._raw_encoder_count: int | None = None
+        self._last_adjusted_encoder_count_16: int | None = None
         self._packets_received = 0
         self._last_packet_monotonic_s: float | None = None
         self._last_packet_timestamp_ms: int | None = None
@@ -127,6 +129,7 @@ class BehaviorSessionRunner:
         self._event_logger.start()
 
         start_now_s = self.ticker.monotonic_s()
+        self._read_latest_encoder_packet(start_now_s)
         session_start_s = start_now_s
         self._last_status_log_s = session_start_s
         self._last_status_encoder_count = self._encoder_count
@@ -245,6 +248,8 @@ class BehaviorSessionRunner:
                     break
 
                 self.ticker.wait_next()
+        except KeyboardInterrupt:
+            stop_reason = "user_interrupt"
         finally:
             self._log_session_stop(
                 reason=stop_reason,
@@ -259,6 +264,7 @@ class BehaviorSessionRunner:
             total_ticks=self._tick_counter,
             duration_s=duration_s,
             trials_completed=self.state_machine.trials_completed,
+            stop_reason=stop_reason,
             dropped_log_entries=self._log_buffer.dropped_items,
             clock_overruns=self.ticker.overrun_count,
             log_binary_path=log_paths.final_binary_path,
@@ -283,10 +289,17 @@ class BehaviorSessionRunner:
             return
 
         self._raw_encoder_count = packet.encoder_count
-        adjusted_count = (
+        adjusted_count_16 = self._normalize_encoder_count(
             -packet.encoder_count if self.config.invert_encoder else packet.encoder_count
         )
-        self._encoder_count = self._normalize_encoder_count(adjusted_count)
+        if self._last_adjusted_encoder_count_16 is None:
+            self._encoder_count = adjusted_count_16
+        else:
+            self._encoder_count += self._signed_count_delta(
+                current_count=adjusted_count_16,
+                previous_count=self._last_adjusted_encoder_count_16,
+            )
+        self._last_adjusted_encoder_count_16 = adjusted_count_16
         self._packets_received += 1
         self._last_packet_monotonic_s = now_s
         self._last_packet_timestamp_ms = packet.timestamp_ms
@@ -294,6 +307,10 @@ class BehaviorSessionRunner:
     @staticmethod
     def _normalize_encoder_count(count: int) -> int:
         return (count + 0x8000) % 0x10000 - 0x8000
+
+    @staticmethod
+    def _signed_count_delta(*, current_count: int, previous_count: int) -> int:
+        return (current_count - previous_count + 0x8000) % 0x10000 - 0x8000
 
     def _log_status_if_due(
         self,
@@ -591,6 +608,7 @@ class BehaviorSessionRunner:
         return {
             "raw_count": self._raw_encoder_count,
             "count": self._encoder_count,
+            "adjusted_count_16": self._last_adjusted_encoder_count_16,
             "delta_count_since_last_status": delta_since_status,
             "invert_encoder": self.config.invert_encoder,
             "packets_received": self._packets_received,
@@ -599,6 +617,19 @@ class BehaviorSessionRunner:
             "last_packet_timestamp_ms": self._last_packet_timestamp_ms,
             "serial_port": self.config.serial_port,
             "serial_baud": self.config.serial_baud,
+            "calibration": {
+                "wheel_diameter_cm": self.config.wheel_diameter_cm,
+                "wheel_circumference_cm": round(
+                    math.pi * self.config.wheel_diameter_cm,
+                    6,
+                ),
+                "encoder_cpr": self.config.encoder_cpr,
+                "cm_per_count": round(
+                    (math.pi * self.config.wheel_diameter_cm)
+                    / self.config.encoder_cpr,
+                    9,
+                ),
+            },
         }
 
     def _context_payload(self, context_id: int) -> dict[str, Any] | None:

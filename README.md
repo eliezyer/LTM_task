@@ -20,10 +20,12 @@ Complete implementation of the head-fixed mouse VR behavioral task described in 
    - `pip install -e .[dev]`
 2. Generate a session config:
    - `python tools/configure_session.py`
-3. Run the controller:
-   - `python -m rpi5_controller.main --config configs/<session_file>.json`
-4. Dry-run with no hardware:
+3. Dry-run with no hardware:
    - `python -m rpi5_controller.main --config configs/<session_file>.json --mock-hardware`
+4. Calibrate wheel distance on the rig:
+   - `python tools/calibrate_wheel.py --config configs/<session_file>.json`
+5. Run the controller:
+   - `python -m rpi5_controller.main --config configs/<session_file>.json`
 
 ## Unity Rendering Computer
 

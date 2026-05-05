@@ -92,6 +92,7 @@ def main() -> None:
                 "trials_completed": result.trials_completed,
                 "total_ticks": result.total_ticks,
                 "duration_s": round(result.duration_s, 3),
+                "stop_reason": result.stop_reason,
                 "clock_overruns": result.clock_overruns,
                 "dropped_log_entries": result.dropped_log_entries,
                 "log_binary_path": str(result.log_binary_path),

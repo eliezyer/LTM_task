@@ -20,3 +20,5 @@ Firmware file: `teensy_firmware/teensy_encoder_streamer.ino`
 
 - Connect Teensy `Serial1 TX` to RPi5 `GPIO15 (RX)` with shared ground.
 - Verify 1 Mbaud stream with logic analyzer or serial sniffer on RPi.
+- Run `python tools/calibrate_wheel.py --config configs/your_session.json` and
+  use the reported count delta as `encoder_cpr` in the session config.

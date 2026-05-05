@@ -69,7 +69,7 @@ Open the session JSON in `configs/` and edit the fields you need. Common fields:
 | `reward_zone_position_cm` | Position inside the context where outcomes are triggered. Must be <= `context_zone_length_cm`. |
 | `outcome_zone_duration_s` | Duration of the outcome scene/TTL hold. |
 | `outcome_scene_id` | Unity scene ID during the outcome zone. |
-| `wheel_diameter_cm`, `encoder_cpr`, `speed_alpha` | Encoder decoding and speed smoothing. |
+| `wheel_diameter_cm`, `encoder_cpr`, `speed_alpha` | Encoder decoding and speed smoothing. `encoder_cpr` is the measured Teensy count delta for one full physical wheel revolution, not necessarily the datasheet PPR. |
 | `invert_encoder` | Defaults to `true` for the current rig. Set to `false` only if wheel movement prints negative position/count changes. |
 | `task_status_interval_s` | How often the terminal and `.events.jsonl` log receive status updates during a run. |
 | `udp_target_ip`, `udp_target_port` | Unity receiver target. Defaults expect Unity at `192.168.10.2:5005`. |
@@ -289,7 +289,28 @@ python tools/hardware_bringup_check.py \
   --enable-solenoids
 ```
 
-## 9. Run The Real Task
+## 9. Calibrate Wheel Distance
+
+The controller converts wheel counts with:
+
+```text
+position_cm = counts * (pi * wheel_diameter_cm) / encoder_cpr
+```
+
+For a 19 cm wheel, one physical wheel turn is about 59.7 cm. If the opening
+corridor takes multiple wheel turns, `encoder_cpr` is too large for the count
+stream coming from the Teensy. Measure the actual count delta from one marked
+wheel revolution:
+
+```bash
+python tools/calibrate_wheel.py --config configs/your_session.json
+```
+
+Then copy the reported `encoder_cpr` into the session config. For example, if
+the current config says `1024` but one wheel turn only changes the Teensy count
+by about `256`, set `"encoder_cpr": 256`.
+
+## 10. Run The Real Task
 
 Start Unity on the rendering computer and make sure it is listening on the UDP
 port from the config. Then run:
@@ -320,7 +341,11 @@ python -m rpi5_controller.main \
   --strict-rt
 ```
 
-## 10. Where To Look After A Run
+Press `Ctrl+C` to stop a session early. The controller logs a
+`session_stop` event with reason `user_interrupt`, shuts down hardware outputs,
+finalizes logs, and prints the same JSON summary as a completed run.
+
+## 11. Where To Look After A Run
 
 By default, live logs are written under `/tmp/bhv_log` and copied to `logs/` on
 clean shutdown. The controller prints the final binary and metadata paths at the
@@ -338,6 +363,7 @@ python tools/configure_session.py
 python -m rpi5_controller.main --config configs/your_session.json --mock-hardware --max-seconds 10
 pytest
 python tools/hardware_bringup_check.py --config configs/your_session.json --mock-hardware --yes --skip-lick
+python tools/calibrate_wheel.py --config configs/your_session.json
 python -m rpi5_controller.main --config configs/your_session.json
 ```
 

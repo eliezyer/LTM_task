@@ -177,8 +177,11 @@ def main() -> None:
     outcome_duration = prompt_float("Outcome/reward-punish zone duration (seconds)", 1.0)
     outcome_scene_id = prompt_int("Unity outcome scene ID", 4)
 
-    wheel_diameter = prompt_float("Wheel diameter (cm)", 20.0)
-    encoder_cpr = prompt_int("Encoder CPR", 1024)
+    wheel_diameter = prompt_float("Wheel diameter (cm)", 19.0)
+    encoder_cpr = prompt_int(
+        "Encoder counts per full wheel revolution (Teensy count delta)",
+        1024,
+    )
     speed_alpha = prompt_float("Speed EMA alpha", 0.2)
 
     output_tmp_dir = prompt_str("Temporary log dir", "/tmp/bhv_log")

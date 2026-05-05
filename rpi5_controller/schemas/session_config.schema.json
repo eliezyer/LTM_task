@@ -112,10 +112,12 @@
     },
     "wheel_diameter_cm": {
       "type": "number",
+      "description": "Physical running-wheel diameter in centimeters.",
       "exclusiveMinimum": 0
     },
     "encoder_cpr": {
       "type": "integer",
+      "description": "Measured Teensy encoder count delta for one full physical wheel revolution.",
       "minimum": 1
     },
     "invert_encoder": {

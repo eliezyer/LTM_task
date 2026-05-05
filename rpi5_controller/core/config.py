@@ -299,7 +299,7 @@ class SessionConfig:
     reward_zone_position_cm: float = 100.0
     outcome_zone_duration_s: float = 1.0
     outcome_scene_id: int = 4
-    wheel_diameter_cm: float = 20.0
+    wheel_diameter_cm: float = 19.0
     encoder_cpr: int = 1024
     invert_encoder: bool = True
     speed_alpha: float = 0.2
@@ -364,7 +364,7 @@ class SessionConfig:
             reward_zone_position_cm=float(data.get("reward_zone_position_cm", 100.0)),
             outcome_zone_duration_s=float(data.get("outcome_zone_duration_s", 1.0)),
             outcome_scene_id=int(data.get("outcome_scene_id", 4)),
-            wheel_diameter_cm=float(data.get("wheel_diameter_cm", 20.0)),
+            wheel_diameter_cm=float(data.get("wheel_diameter_cm", 19.0)),
             encoder_cpr=int(data.get("encoder_cpr", 1024)),
             invert_encoder=bool(data.get("invert_encoder", True)),
             speed_alpha=float(data.get("speed_alpha", 0.2)),

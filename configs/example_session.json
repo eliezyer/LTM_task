@@ -42,5 +42,5 @@
   "ttl_train_gap_ms": 10,
   "udp_target_ip": "192.168.10.2",
   "udp_target_port": 5005,
-  "wheel_diameter_cm": 20.0
+  "wheel_diameter_cm": 19.0
 }
