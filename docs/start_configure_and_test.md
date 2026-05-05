@@ -310,6 +310,11 @@ Then copy the reported `encoder_cpr` into the session config. For example, if
 the current config says `1024` but one wheel turn only changes the Teensy count
 by about `256`, set `"encoder_cpr": 256`.
 
+The Teensy firmware expects sensor channel `A` on Teensy pin `2` and sensor
+channel `B` on Teensy pin `3`. Leave the sensor `I`/index pin unconnected for
+this task; it is a once-per-revolution index pulse, not the quadrature `B`
+channel.
+
 ## 10. Run The Real Task
 
 Start Unity on the rendering computer and make sure it is listening on the UDP

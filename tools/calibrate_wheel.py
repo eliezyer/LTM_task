@@ -71,7 +71,11 @@ def main() -> None:
     )
     counts_per_revolution = abs(delta_counts) / args.revolutions
     if counts_per_revolution == 0:
-        raise SystemExit("No encoder movement was detected.")
+        raise SystemExit(
+            "No encoder movement was detected. The quadrature firmware expects "
+            "sensor channel A on Teensy pin 2 and sensor channel B on Teensy "
+            "pin 3. Do not use the I/index line as channel B."
+        )
 
     suggested_cpr = int(round(counts_per_revolution))
     print()

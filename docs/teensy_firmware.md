@@ -8,6 +8,19 @@ Firmware file: `teensy_firmware/teensy_encoder_streamer.ino`
 - Emits fixed 8-byte packet at 1 kHz over `Serial1` at 1,000,000 baud
 - Packet: `[0xAA][count_low][count_high][timestamp_ms_le32][xor_checksum]`
 
+## Encoder Wiring
+
+The firmware expects true quadrature input:
+
+- Sensor channel `A` -> Teensy pin `2`
+- Sensor channel `B` -> Teensy pin `3`
+- Sensor `I`, `Z`, or `Index` -> leave unconnected for this task
+
+The `I`/index line is usually one pulse per wheel revolution. It is not channel
+`B`, and it cannot replace channel `B` for quadrature decoding. If forward
+movement shows negative position after wiring A/B, either swap A and B or change
+`invert_encoder` in the session config.
+
 ## Build and Flash
 
 1. Open Arduino IDE with Teensyduino installed.
