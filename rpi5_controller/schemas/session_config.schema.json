@@ -23,7 +23,7 @@
     },
     "session_type": {
       "type": "string",
-      "enum": ["training", "retrieval", "retraining"]
+      "enum": ["habituation", "training", "retrieval", "retraining"]
     },
     "num_trials": {
       "type": "integer",
@@ -91,15 +91,22 @@
     },
     "opening_corridor_length_cm": {
       "type": "number",
-      "exclusiveMinimum": 0
+      "exclusiveMinimum": 0,
+      "maximum": 65535
     },
     "context_zone_length_cm": {
       "type": "number",
-      "exclusiveMinimum": 0
+      "exclusiveMinimum": 0,
+      "maximum": 65535
     },
     "reward_zone_position_cm": {
       "type": "number",
       "exclusiveMinimum": 0
+    },
+    "outcome_zone_length_cm": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "maximum": 65535
     },
     "outcome_zone_duration_s": {
       "type": "number",

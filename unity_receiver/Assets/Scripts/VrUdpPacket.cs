@@ -10,6 +10,7 @@ namespace LtmVr
         ItiActive = 1 << 1,
         Freeze = 1 << 2,
         OutcomeActive = 1 << 3,
+        HabituationActive = 1 << 4,
     }
 
     public struct VrUdpPacket
@@ -20,6 +21,19 @@ namespace LtmVr
         public float PositionCm;
         public byte SceneId;
         public VrFlags Flags;
+        public ushort OpeningLengthCm;
+        public ushort ContextLengthCm;
+        public ushort OutcomeLengthCm;
+
+        public bool HasTrackDimensions
+        {
+            get
+            {
+                return OpeningLengthCm > 0
+                    && ContextLengthCm > 0
+                    && OutcomeLengthCm > 0;
+            }
+        }
 
         public static bool TryParse(byte[] data, int length, out VrUdpPacket packet)
         {
@@ -54,8 +68,16 @@ namespace LtmVr
                 PositionCm = positionCm,
                 SceneId = data[8],
                 Flags = (VrFlags)data[9],
+                OpeningLengthCm = ReadUInt16LittleEndian(data, 10),
+                ContextLengthCm = ReadUInt16LittleEndian(data, 12),
+                OutcomeLengthCm = ReadUInt16LittleEndian(data, 14),
             };
             return true;
+        }
+
+        private static ushort ReadUInt16LittleEndian(byte[] data, int offset)
+        {
+            return (ushort)(data[offset] | (data[offset + 1] << 8));
         }
     }
 }

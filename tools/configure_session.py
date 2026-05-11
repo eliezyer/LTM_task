@@ -76,6 +76,7 @@ def prompt_session_type() -> SessionType:
         SessionType.TRAINING,
         SessionType.RETRIEVAL,
         SessionType.RETRAINING,
+        SessionType.HABITUATION,
     ]
     print("Session type:")
     for idx, option in enumerate(options, start=1):
@@ -91,7 +92,7 @@ def prompt_session_type() -> SessionType:
             pass
         if choice in {opt.value for opt in options}:
             return SessionType(choice)
-        print("Select 1, 2, 3 or type the session name.")
+        print("Select 1, 2, 3, 4 or type the session name.")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -121,7 +122,11 @@ def main() -> None:
     context_ids = prompt_int_list("Context IDs", [1, 2, 3])
 
     airpuff_duration_ms = prompt_int("Default airpuff pulse duration (ms)", 50)
-    default_reward_ms = {1: 30, 2: 0, 3: 30}
+    default_reward_ms = (
+        {context_id: 30 for context_id in context_ids}
+        if session_type == SessionType.HABITUATION
+        else {1: 30, 2: 0, 3: 30}
+    )
     default_audio_pins = {1: 7, 2: 8, 3: 13}
     reward_ms_by_context: dict[int, int] = {}
     airpuff_contexts: list[int] = []
@@ -174,6 +179,7 @@ def main() -> None:
     opening_length = prompt_float("Opening corridor length (cm)", 60.0)
     context_length = prompt_float("Context zone length (cm)", 120.0)
     reward_zone = prompt_float("Reward zone position inside context zone (cm)", 100.0)
+    outcome_length = prompt_float("Outcome corridor/room length sent to Unity (cm)", 30.0)
     outcome_duration = prompt_float("Outcome/reward-punish zone duration (seconds)", 1.0)
     outcome_scene_id = prompt_int("Unity outcome scene ID", 4)
 
@@ -189,6 +195,13 @@ def main() -> None:
 
     seed_raw = prompt_str("Context randomization seed (blank for system random)", "")
     seed = int(seed_raw) if seed_raw else None
+
+    context_sequence = None
+    if session_type == SessionType.HABITUATION:
+        context_sequence = [
+            context_ids[idx % len(context_ids)]
+            for idx in range(num_trials)
+        ]
 
     config_payload = {
         "animal_id": animal_id,
@@ -209,6 +222,7 @@ def main() -> None:
         "opening_corridor_length_cm": opening_length,
         "context_zone_length_cm": context_length,
         "reward_zone_position_cm": reward_zone,
+        "outcome_zone_length_cm": outcome_length,
         "outcome_zone_duration_s": outcome_duration,
         "outcome_scene_id": outcome_scene_id,
         "wheel_diameter_cm": wheel_diameter,
@@ -219,6 +233,8 @@ def main() -> None:
         "seed": seed,
         "pinmap": {"wav_cues": wav_cues},
     }
+    if context_sequence is not None:
+        config_payload["context_sequence"] = context_sequence
 
     config = SessionConfig.from_dict(config_payload)
 

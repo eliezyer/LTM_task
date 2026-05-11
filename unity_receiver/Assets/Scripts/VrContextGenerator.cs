@@ -71,6 +71,7 @@ namespace LtmVr
         public ContextStyle outcomeStyle = CreateOutcomeStyle();
 
         private readonly Dictionary<int, Transform> _sceneRoots = new Dictionary<int, Transform>();
+        private readonly Dictionary<int, Transform> _habituationRoots = new Dictionary<int, Transform>();
         private readonly List<Material> _generatedMaterials = new List<Material>();
         private readonly List<Texture2D> _generatedTextures = new List<Texture2D>();
         private readonly List<Mesh> _generatedMeshes = new List<Mesh>();
@@ -110,13 +111,47 @@ namespace LtmVr
             ClearGeneratedAssets();
             UpgradeLegacyStyles();
             _sceneRoots.Clear();
+            _habituationRoots.Clear();
 
             _sceneRoots[0] = BuildSegment(0, openingStyle, openingLengthCm);
             _sceneRoots[1] = BuildSegment(1, context1Style, contextLengthCm);
             _sceneRoots[2] = BuildSegment(2, context2Style, contextLengthCm);
             _sceneRoots[3] = BuildSegment(3, context3Style, contextLengthCm);
+            _habituationRoots[1] = BuildHabituationTrack(1, context1Style);
+            _habituationRoots[2] = BuildHabituationTrack(2, context2Style);
+            _habituationRoots[3] = BuildHabituationTrack(3, context3Style);
             _outcomeRoot = BuildOutcomeScene();
             _itiRoot = BuildItiScene();
+        }
+
+        public bool ApplyNetworkDimensions(
+            ushort openingLengthCmFromPacket,
+            ushort contextLengthCmFromPacket,
+            ushort outcomeLengthCmFromPacket)
+        {
+            if (
+                openingLengthCmFromPacket == 0
+                || contextLengthCmFromPacket == 0
+                || outcomeLengthCmFromPacket == 0
+            )
+            {
+                return false;
+            }
+
+            bool changed = !Mathf.Approximately(openingLengthCm, openingLengthCmFromPacket)
+                || !Mathf.Approximately(contextLengthCm, contextLengthCmFromPacket)
+                || !Mathf.Approximately(outcomeLengthCm, outcomeLengthCmFromPacket);
+
+            if (!changed)
+            {
+                return false;
+            }
+
+            openingLengthCm = openingLengthCmFromPacket;
+            contextLengthCm = contextLengthCmFromPacket;
+            outcomeLengthCm = outcomeLengthCmFromPacket;
+            BuildContexts();
+            return true;
         }
 
         private void UpgradeLegacyStyles()
@@ -213,9 +248,31 @@ namespace LtmVr
 
         public Transform GetSceneRoot(int sceneId, bool itiActive, bool outcomeActive)
         {
+            return GetSceneRoot(sceneId, itiActive, outcomeActive, false);
+        }
+
+        public Transform GetSceneRoot(
+            int sceneId,
+            bool itiActive,
+            bool outcomeActive,
+            bool habituationActive)
+        {
             if (itiActive && _itiRoot != null)
             {
                 return _itiRoot;
+            }
+
+            if (habituationActive)
+            {
+                if (_habituationRoots.TryGetValue(sceneId, out Transform habituationRoot))
+                {
+                    return habituationRoot;
+                }
+
+                if (_habituationRoots.TryGetValue(1, out Transform fallbackHabituationRoot))
+                {
+                    return fallbackHabituationRoot;
+                }
             }
 
             if (outcomeActive && _outcomeRoot != null)
@@ -238,9 +295,23 @@ namespace LtmVr
 
         public float GetSegmentLengthMeters(int sceneId, bool itiActive, bool outcomeActive)
         {
+            return GetSegmentLengthMeters(sceneId, itiActive, outcomeActive, false);
+        }
+
+        public float GetSegmentLengthMeters(
+            int sceneId,
+            bool itiActive,
+            bool outcomeActive,
+            bool habituationActive)
+        {
             if (itiActive)
             {
                 return CmToM(openingLengthCm);
+            }
+
+            if (habituationActive)
+            {
+                return CmToM(openingLengthCm + outcomeLengthCm);
             }
 
             if (outcomeActive)
@@ -254,6 +325,14 @@ namespace LtmVr
         public IEnumerable<Transform> GetAllSceneRoots()
         {
             foreach (KeyValuePair<int, Transform> entry in _sceneRoots)
+            {
+                if (entry.Value != null)
+                {
+                    yield return entry.Value;
+                }
+            }
+
+            foreach (KeyValuePair<int, Transform> entry in _habituationRoots)
             {
                 if (entry.Value != null)
                 {
@@ -285,8 +364,42 @@ namespace LtmVr
         {
             GameObject root = new GameObject(name);
             root.transform.SetParent(transform, false);
+            AddCorridorSegment(root.transform, style, lengthCm, name, 0.0f);
+            return root.transform;
+        }
 
+        private Transform BuildHabituationTrack(int sceneId, ContextStyle roomStyle)
+        {
+            string name = $"Scene_Habituation_{sceneId}";
+            GameObject root = new GameObject(name);
+            root.transform.SetParent(transform, false);
+
+            AddCorridorSegment(
+                root.transform,
+                openingStyle,
+                openingLengthCm,
+                $"{name}_Opening",
+                0.0f
+            );
+            AddCorridorSegment(
+                root.transform,
+                roomStyle,
+                outcomeLengthCm,
+                $"{name}_OutcomeRoom",
+                openingLengthCm
+            );
+            return root.transform;
+        }
+
+        private void AddCorridorSegment(
+            Transform root,
+            ContextStyle style,
+            float lengthCm,
+            string name,
+            float startZCm)
+        {
             float lengthM = CmToM(lengthCm);
+            float startZM = CmToM(startZCm);
             float widthM = CmToM(corridorWidthCm);
             float wallHeightM = CmToM(wallHeightCm);
             float wallThicknessM = 0.05f;
@@ -297,8 +410,8 @@ namespace LtmVr
             CreatePrimitive(
                 PrimitiveType.Cube,
                 $"{name}_Floor",
-                root.transform,
-                new Vector3(0.0f, -0.01f, lengthM * 0.5f),
+                root,
+                new Vector3(0.0f, -0.01f, startZM + lengthM * 0.5f),
                 new Vector3(widthM, 0.02f, lengthM),
                 blackMaterial
             );
@@ -306,8 +419,8 @@ namespace LtmVr
             CreatePrimitive(
                 PrimitiveType.Cube,
                 $"{name}_Wall_Left_{style.label}",
-                root.transform,
-                new Vector3(-widthM * 0.5f, wallHeightM * 0.5f, lengthM * 0.5f),
+                root,
+                new Vector3(-widthM * 0.5f, wallHeightM * 0.5f, startZM + lengthM * 0.5f),
                 new Vector3(wallThicknessM, wallHeightM, lengthM),
                 wallMaterial
             );
@@ -315,13 +428,11 @@ namespace LtmVr
             CreatePrimitive(
                 PrimitiveType.Cube,
                 $"{name}_Wall_Right_{style.label}",
-                root.transform,
-                new Vector3(widthM * 0.5f, wallHeightM * 0.5f, lengthM * 0.5f),
+                root,
+                new Vector3(widthM * 0.5f, wallHeightM * 0.5f, startZM + lengthM * 0.5f),
                 new Vector3(wallThicknessM, wallHeightM, lengthM),
                 wallMaterial
             );
-
-            return root.transform;
         }
 
         private Transform BuildOutcomeScene()

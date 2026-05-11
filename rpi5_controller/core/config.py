@@ -189,7 +189,13 @@ class ContextConfig:
             raise ValueError("context airpuff_ms must be >= 0")
 
 
-def default_task_events() -> dict[str, tuple[TaskActionConfig, ...]]:
+def default_task_events(
+    session_type: SessionType | str | None = None,
+) -> dict[str, tuple[TaskActionConfig, ...]]:
+    is_habituation = (
+        session_type == SessionType.HABITUATION
+        or session_type == SessionType.HABITUATION.value
+    )
     raw_events: dict[str, list[dict[str, Any]]] = {
         "trial_start": [
             {"type": "stop_audio"},
@@ -199,8 +205,14 @@ def default_task_events() -> dict[str, tuple[TaskActionConfig, ...]]:
             {"type": "start_audio", "cue": "trial_available"},
         ],
         "context_entry": [
-            {"type": "reset_segment"},
-            {"type": "teleport"},
+            *(
+                []
+                if is_habituation
+                else [
+                    {"type": "reset_segment"},
+                    {"type": "teleport"},
+                ]
+            ),
             {"type": "start_audio", "cue": CONTEXT_AUDIO_TOKEN},
             {
                 "type": "ttl_pulse_train",
@@ -217,7 +229,9 @@ def default_task_events() -> dict[str, tuple[TaskActionConfig, ...]]:
             {"type": "airpuff"},
             {"type": "ttl_pulse", "event": TTLEvent.AIRPUFF.value},
         ],
-        "outcome_start": [
+        "outcome_start": []
+        if is_habituation
+        else [
             {"type": "stop_audio"},
             {"type": "reset_segment"},
             {"type": "teleport"},
@@ -297,6 +311,7 @@ class SessionConfig:
     opening_corridor_length_cm: float = 60.0
     context_zone_length_cm: float = 120.0
     reward_zone_position_cm: float = 100.0
+    outcome_zone_length_cm: float = 30.0
     outcome_zone_duration_s: float = 1.0
     outcome_scene_id: int = 4
     wheel_diameter_cm: float = 19.0
@@ -332,6 +347,7 @@ class SessionConfig:
         )
 
         session_type_value = data.get("session_type", SessionType.TRAINING.value)
+        session_type = SessionType(session_type_value)
         pinmap_data = data.get("pinmap", {})
         context_sequence_raw = data.get("context_sequence")
         context_sequence = (
@@ -342,10 +358,13 @@ class SessionConfig:
 
         cfg = cls(
             animal_id=str(data.get("animal_id", "unknown")),
-            session_type=SessionType(session_type_value),
+            session_type=session_type,
             contexts=contexts,
             context_sequence=context_sequence,
-            task_events=_parse_task_events(data.get("task_events")),
+            task_events=_parse_task_events(
+                data.get("task_events"),
+                session_type=session_type,
+            ),
             num_trials=int(data.get("num_trials", 50)),
             reward_ms_by_context={ctx_id: ctx.reward_ms for ctx_id, ctx in contexts.items()},
             airpuff_contexts=[
@@ -362,6 +381,7 @@ class SessionConfig:
             ),
             context_zone_length_cm=float(data.get("context_zone_length_cm", 120.0)),
             reward_zone_position_cm=float(data.get("reward_zone_position_cm", 100.0)),
+            outcome_zone_length_cm=float(data.get("outcome_zone_length_cm", 30.0)),
             outcome_zone_duration_s=float(data.get("outcome_zone_duration_s", 1.0)),
             outcome_scene_id=int(data.get("outcome_scene_id", 4)),
             wheel_diameter_cm=float(data.get("wheel_diameter_cm", 19.0)),
@@ -441,6 +461,21 @@ class SessionConfig:
         if not (0 < self.reward_zone_position_cm <= self.context_zone_length_cm):
             raise ValueError(
                 "reward_zone_position_cm must be > 0 and <= context_zone_length_cm"
+            )
+        if self.outcome_zone_length_cm <= 0:
+            raise ValueError("outcome_zone_length_cm must be > 0")
+        max_udp_length_cm = 65535
+        if any(
+            length_cm > max_udp_length_cm
+            for length_cm in (
+                self.opening_corridor_length_cm,
+                self.context_zone_length_cm,
+                self.outcome_zone_length_cm,
+            )
+        ):
+            raise ValueError(
+                "UDP track lengths must be <= 65535 cm "
+                "(opening_corridor_length_cm, context_zone_length_cm, outcome_zone_length_cm)"
             )
         if self.outcome_zone_duration_s <= 0:
             raise ValueError("outcome_zone_duration_s must be > 0")
@@ -573,8 +608,12 @@ def _parse_contexts(
     return contexts
 
 
-def _parse_task_events(raw_events: Any) -> dict[str, tuple[TaskActionConfig, ...]]:
-    events = default_task_events()
+def _parse_task_events(
+    raw_events: Any,
+    *,
+    session_type: SessionType = SessionType.TRAINING,
+) -> dict[str, tuple[TaskActionConfig, ...]]:
+    events = default_task_events(session_type)
     if raw_events is None:
         return events
 

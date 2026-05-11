@@ -359,6 +359,9 @@ class BehaviorSessionRunner:
             position_cm=position_cm,
             scene_id=scene_id,
             flags=flags,
+            opening_corridor_length_cm=self.config.opening_corridor_length_cm,
+            context_zone_length_cm=self.config.context_zone_length_cm,
+            outcome_zone_length_cm=self.config.outcome_zone_length_cm,
         )
         self._udp_sender.send(packet)
         self._seq_num = (self._seq_num + 1) & 0xFFFFFFFF
@@ -403,6 +406,50 @@ class BehaviorSessionRunner:
                 segment_position_cm=segment_position_cm,
                 speed_cm_s=speed_cm_s,
                 commands=commands,
+            )
+            return
+
+        if (
+            previous_state == BehaviorState.OPENING_CORRIDOR
+            and current_state == BehaviorState.OUTCOME_ZONE
+            and self.config.session_type == SessionType.HABITUATION
+        ):
+            self._log_task_event(
+                "context_entry",
+                now_s=now_s,
+                session_start_s=session_start_s,
+                tick_out=tick_out,
+                segment_position_cm=segment_position_cm,
+                speed_cm_s=speed_cm_s,
+                commands=commands,
+                reason="habituation_room_reached",
+            )
+            self._log_task_event(
+                "outcome_start",
+                now_s=now_s,
+                session_start_s=session_start_s,
+                tick_out=tick_out,
+                segment_position_cm=segment_position_cm,
+                speed_cm_s=speed_cm_s,
+                commands=commands,
+                reason="habituation_room_reached",
+            )
+            return
+
+        if (
+            previous_state == BehaviorState.OPENING_CORRIDOR
+            and current_state == BehaviorState.ITI
+            and self.config.session_type == SessionType.HABITUATION
+        ):
+            self._log_task_event(
+                "iti_start",
+                now_s=now_s,
+                session_start_s=session_start_s,
+                tick_out=tick_out,
+                segment_position_cm=segment_position_cm,
+                speed_cm_s=speed_cm_s,
+                commands=commands,
+                reason="habituation_no_context_outcome",
             )
             return
 
@@ -551,6 +598,7 @@ class BehaviorSessionRunner:
                 "opening_corridor_length_cm": self.config.opening_corridor_length_cm,
                 "context_zone_length_cm": self.config.context_zone_length_cm,
                 "reward_zone_position_cm": self.config.reward_zone_position_cm,
+                "outcome_zone_length_cm": self.config.outcome_zone_length_cm,
             },
             "speed_cm_s": round(float(speed_cm_s), 6),
             "scene_id": tick_out.scene_id,

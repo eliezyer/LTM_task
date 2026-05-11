@@ -4,6 +4,7 @@ from enum import Enum, IntEnum, IntFlag
 
 
 class SessionType(str, Enum):
+    HABITUATION = "habituation"
     TRAINING = "training"
     RETRIEVAL = "retrieval"
     RETRAINING = "retraining"
@@ -30,6 +31,7 @@ class UdpFlags(IntFlag):
     ITI_ACTIVE = 1 << 1
     FREEZE = 1 << 2
     OUTCOME_ACTIVE = 1 << 3
+    HABITUATION_ACTIVE = 1 << 4
 
 
 SCENE_OPENING = 0

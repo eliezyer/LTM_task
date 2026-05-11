@@ -81,7 +81,10 @@ class BehaviorStateMachine:
         if self.state == BehaviorState.OPENING_CORRIDOR:
             freeze = tick_input.speed_cm_s <= 0.0
             if tick_input.segment_position_cm >= self.config.opening_corridor_length_cm:
-                self._enter_context_zone(commands)
+                if self.config.session_type == SessionType.HABITUATION:
+                    self._enter_habituation_outcome(commands, tick_input.now_s)
+                else:
+                    self._enter_context_zone(commands)
 
         elif self.state == BehaviorState.CONTEXT_ZONE:
             freeze = tick_input.speed_cm_s <= 0.0
@@ -162,6 +165,22 @@ class BehaviorStateMachine:
             )
         )
 
+    def _enter_habituation_outcome(self, commands: list[Command], now_s: float) -> None:
+        context = self._current_context_config()
+        commands.extend(
+            build_event_commands(
+                self.config,
+                "context_entry",
+                context=context,
+            )
+        )
+
+        outcome_events = context.resolved_outcome_events()
+        if outcome_events:
+            self._enter_outcome_zone(commands, now_s, outcome_events)
+        else:
+            self._enter_iti(commands, now_s)
+
     def _enter_outcome_zone(
         self,
         commands: list[Command],
@@ -227,7 +246,16 @@ class BehaviorStateMachine:
         airpuff_on: bool,
     ) -> TickOutput:
         scene_id = 0
-        if self.state == BehaviorState.CONTEXT_ZONE:
+        if (
+            self.config.session_type == SessionType.HABITUATION
+            and self.state in {
+                BehaviorState.OPENING_CORRIDOR,
+                BehaviorState.OUTCOME_ZONE,
+            }
+            and self.current_context in self.config.contexts
+        ):
+            scene_id = self._current_context_config().scene_id
+        elif self.state == BehaviorState.CONTEXT_ZONE:
             scene_id = self._current_context_config().scene_id
         elif self.state == BehaviorState.OUTCOME_ZONE:
             scene_id = self.config.outcome_scene_id
@@ -235,6 +263,8 @@ class BehaviorStateMachine:
         flags = UdpFlags.NONE
         if any(cmd.type == CommandType.TELEPORT for cmd in commands):
             flags |= UdpFlags.TELEPORT
+        if self.config.session_type == SessionType.HABITUATION:
+            flags |= UdpFlags.HABITUATION_ACTIVE
         if self.state == BehaviorState.ITI:
             flags |= UdpFlags.ITI_ACTIVE
         if self.state == BehaviorState.OUTCOME_ZONE:

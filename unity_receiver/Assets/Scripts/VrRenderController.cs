@@ -16,6 +16,7 @@ namespace LtmVr
         private int _activeSceneId = -1;
         private bool _activeIti;
         private bool _activeOutcome;
+        private bool _activeHabituation;
         private bool _initialized;
 
         private void Reset()
@@ -34,7 +35,7 @@ namespace LtmVr
             {
                 contextGenerator.BuildContexts();
             }
-            ActivateScene(0, false, false);
+            ActivateScene(0, false, false, false);
             _initialized = true;
         }
 
@@ -57,7 +58,20 @@ namespace LtmVr
 
             bool itiActive = (packet.Flags & VrFlags.ItiActive) != 0;
             bool outcomeActive = (packet.Flags & VrFlags.OutcomeActive) != 0;
+            bool habituationActive = (packet.Flags & VrFlags.HabituationActive) != 0;
             bool teleport = (packet.Flags & VrFlags.Teleport) != 0;
+
+            if (
+                packet.HasTrackDimensions
+                && contextGenerator.ApplyNetworkDimensions(
+                    packet.OpeningLengthCm,
+                    packet.ContextLengthCm,
+                    packet.OutcomeLengthCm
+                )
+            )
+            {
+                _initialized = false;
+            }
 
             if (
                 !_initialized
@@ -65,22 +79,38 @@ namespace LtmVr
                 || packet.SceneId != _activeSceneId
                 || itiActive != _activeIti
                 || outcomeActive != _activeOutcome
+                || habituationActive != _activeHabituation
             )
             {
-                ActivateScene(packet.SceneId, itiActive, outcomeActive);
+                ActivateScene(packet.SceneId, itiActive, outcomeActive, habituationActive);
             }
 
-            ApplyPosition(packet.PositionCm, packet.SceneId, itiActive, outcomeActive);
+            ApplyPosition(
+                packet.PositionCm,
+                packet.SceneId,
+                itiActive,
+                outcomeActive,
+                habituationActive
+            );
         }
 
-        private void ActivateScene(int sceneId, bool itiActive, bool outcomeActive)
+        private void ActivateScene(
+            int sceneId,
+            bool itiActive,
+            bool outcomeActive,
+            bool habituationActive)
         {
             foreach (Transform root in contextGenerator.GetAllSceneRoots())
             {
                 root.gameObject.SetActive(false);
             }
 
-            Transform activeRoot = contextGenerator.GetSceneRoot(sceneId, itiActive, outcomeActive);
+            Transform activeRoot = contextGenerator.GetSceneRoot(
+                sceneId,
+                itiActive,
+                outcomeActive,
+                habituationActive
+            );
             if (activeRoot != null)
             {
                 activeRoot.gameObject.SetActive(true);
@@ -89,10 +119,16 @@ namespace LtmVr
             _activeSceneId = sceneId;
             _activeIti = itiActive;
             _activeOutcome = outcomeActive;
+            _activeHabituation = habituationActive;
             _initialized = true;
         }
 
-        private void ApplyPosition(float positionCm, int sceneId, bool itiActive, bool outcomeActive)
+        private void ApplyPosition(
+            float positionCm,
+            int sceneId,
+            bool itiActive,
+            bool outcomeActive,
+            bool habituationActive)
         {
             if (rigTransform == null)
             {
@@ -105,7 +141,8 @@ namespace LtmVr
                 float maxZ = contextGenerator.GetSegmentLengthMeters(
                     sceneId,
                     itiActive,
-                    outcomeActive
+                    outcomeActive,
+                    habituationActive
                 );
                 zMeters = Mathf.Clamp(zMeters, 0.0f, maxZ);
             }
