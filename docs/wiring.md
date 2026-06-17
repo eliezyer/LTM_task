@@ -33,6 +33,7 @@
 - GPIO 22 -> DI5 Lick onset
 - GPIO 23 -> DI6 ITI start
 - GPIO 24 -> DI7 Outcome/reward-punishment zone active
+- GPIO 25 -> DI8 Camera frame clock, 30 Hz, 50% duty cycle
 
 ## Notes
 

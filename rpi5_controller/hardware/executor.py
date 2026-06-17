@@ -6,7 +6,7 @@ from rpi5_controller.core.commands import Command, CommandType, TTLEvent
 from rpi5_controller.core.config import SessionConfig
 from rpi5_controller.hardware.audio import WavTriggerController
 from rpi5_controller.hardware.gpio import GPIOBackend
-from rpi5_controller.hardware.pulse import PulseScheduler
+from rpi5_controller.hardware.pulse import PulseScheduler, SquareWaveDigitalOutput
 
 
 @dataclass
@@ -38,11 +38,18 @@ class HardwareCommandExecutor:
             TTLEvent.LICK_ONSET: config.pinmap.ttl_lick,
             TTLEvent.ITI_START: config.pinmap.ttl_iti_start,
         }
+        self._camera_frame_clock = SquareWaveDigitalOutput(
+            gpio=self.gpio,
+            pin=config.pinmap.ttl_camera_frame_clock,
+            frequency_hz=30.0,
+            duty_cycle=0.5,
+        )
 
     def setup(self) -> None:
         output_pins = {
             self.config.pinmap.water_solenoid,
             self.config.pinmap.air_solenoid,
+            self.config.pinmap.ttl_camera_frame_clock,
             *self._ttl_pin_map.values(),
         }
         for pin in output_pins:
@@ -120,7 +127,9 @@ class HardwareCommandExecutor:
 
     def update(self, now_s: float) -> None:
         self.pulse_scheduler.update(now_s)
+        self._camera_frame_clock.update(now_s)
 
     def shutdown(self) -> None:
+        self._camera_frame_clock.stop()
         self.audio.stop_all()
         self.gpio.cleanup()

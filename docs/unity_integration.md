@@ -38,7 +38,7 @@ RPi5 sends a fixed 16-byte UDP packet to Unity on every loop iteration.
 - When bit4 is set, show a connected habituation track: opening corridor first,
   then the current room/cue corridor immediately after it. In habituation,
   `scene_id` identifies the currently scheduled room while the animal is still in
-  the opening corridor.
+  the opening corridor, and the room uses `context_len_cm`.
 - Apply corridor dimensions when the packet length fields are nonzero. The
   sample Unity renderer rebuilds procedural geometry only when those dimensions
   change.

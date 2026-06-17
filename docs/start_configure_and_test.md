@@ -68,7 +68,7 @@ Open the session JSON in `configs/` and edit the fields you need. Common fields:
 | `opening_corridor_length_cm` | Distance before the context starts. |
 | `context_zone_length_cm` | Length of the context segment. |
 | `reward_zone_position_cm` | Position inside the context where outcomes are triggered. Must be <= `context_zone_length_cm`. |
-| `outcome_zone_length_cm` | Length of the Unity outcome corridor/room in centimeters. This is sent to Unity by UDP. |
+| `outcome_zone_length_cm` | Length of the separate Unity outcome corridor in centimeters. This is sent to Unity by UDP. |
 | `outcome_zone_duration_s` | Duration of the outcome scene/TTL hold. |
 | `outcome_scene_id` | Unity scene ID during the outcome zone. |
 | `wheel_diameter_cm`, `encoder_cpr`, `speed_alpha` | Encoder decoding and speed smoothing. `encoder_cpr` is the measured Teensy count delta for one full physical wheel revolution, not necessarily the datasheet PPR. |
@@ -148,8 +148,8 @@ Without `context_sequence`, contexts are shuffled in blocks using `seed`.
 For habituation sessions, use `session_type: "habituation"` and provide a fixed
 `context_sequence` when you want the rooms/cues to appear in a predictable order,
 for example `[1, 2, 3, 1, 2, 3]`. In habituation, the opening corridor leads
-directly into the visible room; reward is delivered when the opening length is
-reached.
+directly into the visible room, and that room uses `context_zone_length_cm`;
+reward is delivered when the opening length is reached.
 
 ## 5. Change Task Event Actions
 
@@ -220,10 +220,14 @@ Common defaults:
     "ttl_airpuff": 21,
     "ttl_lick": 22,
     "ttl_iti_start": 23,
-    "ttl_outcome_start": 24
+    "ttl_outcome_start": 24,
+    "ttl_camera_frame_clock": 25
   }
 }
 ```
+
+`ttl_camera_frame_clock` is registered as NI DI8 and runs continuously during a
+session at 30 Hz with a 50% duty cycle for camera frame collection.
 
 For a new named audio cue, add it under `pinmap.wav_cues`:
 

@@ -199,7 +199,8 @@
         "ttl_airpuff": {"type": "integer", "minimum": 0},
         "ttl_lick": {"type": "integer", "minimum": 0},
         "ttl_iti_start": {"type": "integer", "minimum": 0},
-        "ttl_outcome_start": {"type": "integer", "minimum": 0}
+        "ttl_outcome_start": {"type": "integer", "minimum": 0},
+        "ttl_camera_frame_clock": {"type": "integer", "minimum": 0}
       }
     }
   },

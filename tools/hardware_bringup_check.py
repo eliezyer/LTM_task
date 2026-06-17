@@ -98,6 +98,7 @@ class HardwareBringUpChecklist:
             pinmap.ttl_lick,
             pinmap.ttl_iti_start,
             pinmap.ttl_outcome_start,
+            pinmap.ttl_camera_frame_clock,
         }
 
         for pin in output_pins:
@@ -128,6 +129,8 @@ class HardwareBringUpChecklist:
                 duration_ms=self.line_test_pulse_ms,
                 confirmation_prompt=f"Observed {name} pulse on NI/scope?",
             )
+
+        self._test_camera_frame_clock()
 
         print("Testing context identity pulse train on DI1.")
         for context_id in self.config.context_ids:
@@ -160,6 +163,35 @@ class HardwareBringUpChecklist:
                     f"gap={self.config.ttl_train_gap_ms} ms"
                 ),
             )
+
+    def _test_camera_frame_clock(self) -> None:
+        print("Testing camera frame clock on DI8 at 30 Hz, 50% duty cycle.")
+        pin = self.config.pinmap.ttl_camera_frame_clock
+        period_s = 1.0 / 30.0
+        high_s = period_s * 0.5
+        start_s = time.monotonic()
+        end_s = start_s + (period_s * 6.0)
+        next_edge_s = start_s
+        value = 0
+
+        while time.monotonic() < end_s:
+            now_s = time.monotonic()
+            if now_s >= next_edge_s:
+                value = 0 if value else 1
+                self.gpio.write(pin, value)
+                next_edge_s += high_s
+            time.sleep(0.001)
+        self.gpio.write(pin, 0)
+
+        observed = self._prompt_yes_no(
+            "Observed 30 Hz camera frame clock on DI8?",
+            default=True,
+        )
+        self._record(
+            name="TTL Camera Frame Clock (DI8)",
+            status="PASS" if observed else "FAIL",
+            detail=f"BCM {pin}, 30 Hz, 50% duty cycle",
+        )
 
     def _run_audio_checks(self) -> None:
         print("\n[Audio trigger checks]")

@@ -33,7 +33,7 @@ namespace LtmVr
         {
             if (contextGenerator != null)
             {
-                contextGenerator.BuildContexts();
+                contextGenerator.EnsureContextsBuilt();
             }
             ActivateScene(0, false, false, false);
             _initialized = true;

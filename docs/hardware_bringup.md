@@ -8,6 +8,7 @@ Use this script before first animal sessions to validate digital outputs and inp
 
 - TTL single pulses (DI0, DI2, DI3, DI4, DI5, DI6, DI7)
 - Context identity pulse trains on DI1 (1, 2, 3 pulses)
+- Camera frame clock on DI8 (30 Hz, 50% duty cycle)
 - WAV Trigger trial-available line (channel 1) plus context lines (channels 2, 3, 4)
 - Optional solenoid actuation (water + air)
 - Lick detector rising-edge detection

@@ -80,6 +80,9 @@ namespace LtmVr
         private Transform _outcomeRoot;
         private Shader _contextShader;
         private bool _warnedAboutTemplateShader;
+        private bool _contextsBuilt;
+
+        public bool HasBuiltContexts => _contextsBuilt;
 
         private void Start()
         {
@@ -88,7 +91,7 @@ namespace LtmVr
                 ApplyBlackWorldSettings();
             }
 
-            if (regenerateOnStart)
+            if (regenerateOnStart && !_contextsBuilt)
             {
                 BuildContexts();
             }
@@ -112,6 +115,7 @@ namespace LtmVr
             UpgradeLegacyStyles();
             _sceneRoots.Clear();
             _habituationRoots.Clear();
+            _contextsBuilt = false;
 
             _sceneRoots[0] = BuildSegment(0, openingStyle, openingLengthCm);
             _sceneRoots[1] = BuildSegment(1, context1Style, contextLengthCm);
@@ -122,6 +126,16 @@ namespace LtmVr
             _habituationRoots[3] = BuildHabituationTrack(3, context3Style);
             _outcomeRoot = BuildOutcomeScene();
             _itiRoot = BuildItiScene();
+            _contextsBuilt = true;
+            SetAllSceneRootsActive(false);
+        }
+
+        public void EnsureContextsBuilt()
+        {
+            if (!_contextsBuilt)
+            {
+                BuildContexts();
+            }
         }
 
         public bool ApplyNetworkDimensions(
@@ -311,7 +325,7 @@ namespace LtmVr
 
             if (habituationActive)
             {
-                return CmToM(openingLengthCm + outcomeLengthCm);
+                return CmToM(openingLengthCm + contextLengthCm);
             }
 
             if (outcomeActive)
@@ -384,7 +398,7 @@ namespace LtmVr
             AddCorridorSegment(
                 root.transform,
                 roomStyle,
-                outcomeLengthCm,
+                contextLengthCm,
                 $"{name}_OutcomeRoom",
                 openingLengthCm
             );
@@ -896,6 +910,17 @@ namespace LtmVr
             for (int i = 0; i < toDestroy.Count; i++)
             {
                 DestroyUnityObject(toDestroy[i]);
+            }
+        }
+
+        private void SetAllSceneRootsActive(bool active)
+        {
+            foreach (Transform root in GetAllSceneRoots())
+            {
+                if (root != null)
+                {
+                    root.gameObject.SetActive(active);
+                }
             }
         }
 

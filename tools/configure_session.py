@@ -151,7 +151,7 @@ def main() -> None:
             context_id,
         )
         audio_cue = prompt_str(f"Audio cue name for context {context_id}", f"context_{context_id}")
-        suggested_audio_pin = default_audio_pins.get(context_id, 25 + len(wav_cues))
+        suggested_audio_pin = default_audio_pins.get(context_id, 26 + len(wav_cues))
         audio_pin = prompt_int(
             f"WAV trigger BCM pin for cue {audio_cue}",
             suggested_audio_pin,

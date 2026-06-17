@@ -23,7 +23,7 @@ Use these JSON sections to change the task:
 - `task_events`: ordered action lists for each trigger point
 - `outcome_zone_duration_s` and `outcome_scene_id`: how long Unity shows the
   reward/punishment outcome scene, and which scene ID it receives
-- `outcome_zone_length_cm`: how long Unity makes the outcome corridor/room
+- `outcome_zone_length_cm`: how long Unity makes the separate outcome corridor
 - `pinmap.wav_cues`: named WAV Trigger input pins for any new audio cues
 - `pinmap.ttl_outcome_start`: TTL line held high during the outcome zone
 
@@ -166,7 +166,9 @@ Set `session_type` to `habituation` when the animal should walk the low-spatial
 frequency opening corridor and receive reward as soon as it reaches the visible
 room at the end. In habituation, the RPi sends the current room's `scene_id`
 while the animal is still in the opening corridor, and Unity renders a connected
-opening-plus-room track. The room length comes from `outcome_zone_length_cm`.
+opening-plus-room track. The habituation room length comes from
+`context_zone_length_cm`; `outcome_zone_length_cm` remains the length of the
+separate outcome corridor used outside the connected habituation view.
 
 Use `context_sequence` for the sequential room/cue order. The checked-in
 starter config uses:
@@ -176,6 +178,7 @@ starter config uses:
   "session_type": "habituation",
   "context_sequence": [1, 2, 3, 1, 2, 3],
   "opening_corridor_length_cm": 40.0,
+  "context_zone_length_cm": 30.0,
   "outcome_zone_length_cm": 30.0
 }
 ```

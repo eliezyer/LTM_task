@@ -43,6 +43,7 @@ This folder contains sample Unity C# scripts for the rendering computer.
 - Scene 0 is used for the opening corridor; ITI uses a separate black scene when the ITI flag is set; outcome uses a separate scene when the outcome flag is set.
 - In habituation mode, Unity shows a connected opening-plus-room track. The room
   is already visible at the end of the opening corridor, and `scene_id` selects
-  which room/cue style is next.
+  which room/cue style is next. The room length follows `context_len_cm`, not
+  `outcome_len_cm`.
 - The context generator creates its own runtime materials and procedural textures. Leave `Material Template` empty and keep `Use Material Template Shader` off unless you have a known-good unlit shader for your render pipeline.
 - Default scene cues are all blue on black: opening low-spatial smudges, context 1 vertical gratings, context 2 checkerboard, context 3 polka dots, and outcome arrowheads pointing down the corridor.

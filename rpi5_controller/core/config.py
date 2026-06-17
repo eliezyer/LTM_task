@@ -269,6 +269,7 @@ class PinMap:
     ttl_lick: int = 22
     ttl_iti_start: int = 23
     ttl_outcome_start: int = 24
+    ttl_camera_frame_clock: int = 25
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "PinMap":

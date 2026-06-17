@@ -56,3 +56,44 @@ class PulseScheduler:
             self._events,
             _PulseEvent(when_s=when_s, seq=self._sequence, pin=pin, delta=delta),
         )
+
+
+@dataclass
+class SquareWaveDigitalOutput:
+    gpio: GPIOBackend
+    pin: int
+    frequency_hz: float
+    duty_cycle: float = 0.5
+    enabled: bool = True
+    _period_s: float = field(init=False)
+    _high_s: float = field(init=False)
+    _start_s: float | None = None
+    _last_value: int = 0
+
+    def __post_init__(self) -> None:
+        if self.frequency_hz <= 0:
+            raise ValueError("frequency_hz must be > 0")
+        if not (0.0 < self.duty_cycle < 1.0):
+            raise ValueError("duty_cycle must be in (0, 1)")
+        self._period_s = 1.0 / self.frequency_hz
+        self._high_s = self._period_s * self.duty_cycle
+
+    def update(self, now_s: float) -> None:
+        if not self.enabled:
+            self.stop()
+            return
+
+        if self._start_s is None:
+            self._start_s = now_s
+
+        phase_s = (now_s - self._start_s) % self._period_s
+        value = 1 if phase_s < self._high_s else 0
+        if value != self._last_value:
+            self.gpio.write(self.pin, value)
+            self._last_value = value
+
+    def stop(self) -> None:
+        self._start_s = None
+        if self._last_value != 0:
+            self.gpio.write(self.pin, 0)
+            self._last_value = 0
