@@ -41,6 +41,7 @@ namespace LtmVr
     public class VrContextGenerator : MonoBehaviour
     {
         private const int CurrentContextStyleVersion = 3;
+        private const float FloorPatternBrightness = 0.45f;
 
         [Header("Track Dimensions (cm)")]
         public float openingLengthCm = 60.0f;
@@ -416,35 +417,44 @@ namespace LtmVr
             float startZM = CmToM(startZCm);
             float widthM = CmToM(corridorWidthCm);
             float wallHeightM = CmToM(wallHeightCm);
-            float wallThicknessM = 0.05f;
 
-            Material blackMaterial = BuildSolidMaterial(Color.black);
             Material wallMaterial = BuildPatternMaterial(style, lengthM, wallHeightM);
-
-            CreatePrimitive(
-                PrimitiveType.Cube,
-                $"{name}_Floor",
-                root,
-                new Vector3(0.0f, -0.01f, startZM + lengthM * 0.5f),
-                new Vector3(widthM, 0.02f, lengthM),
-                blackMaterial
+            Material floorMaterial = BuildPatternMaterial(
+                style,
+                lengthM,
+                widthM,
+                FloorPatternBrightness
             );
 
-            CreatePrimitive(
-                PrimitiveType.Cube,
+            CreateFloorPlane(
+                $"{name}_Floor",
+                root,
+                -widthM * 0.5f,
+                widthM * 0.5f,
+                startZM,
+                startZM + lengthM,
+                floorMaterial
+            );
+
+            CreateWallPlane(
                 $"{name}_Wall_Left_{style.label}",
                 root,
-                new Vector3(-widthM * 0.5f, wallHeightM * 0.5f, startZM + lengthM * 0.5f),
-                new Vector3(wallThicknessM, wallHeightM, lengthM),
+                -widthM * 0.5f,
+                startZM,
+                startZM + lengthM,
+                wallHeightM,
+                true,
                 wallMaterial
             );
 
-            CreatePrimitive(
-                PrimitiveType.Cube,
+            CreateWallPlane(
                 $"{name}_Wall_Right_{style.label}",
                 root,
-                new Vector3(widthM * 0.5f, wallHeightM * 0.5f, startZM + lengthM * 0.5f),
-                new Vector3(wallThicknessM, wallHeightM, lengthM),
+                widthM * 0.5f,
+                startZM,
+                startZM + lengthM,
+                wallHeightM,
+                false,
                 wallMaterial
             );
         }
@@ -458,35 +468,39 @@ namespace LtmVr
             float lengthM = CmToM(outcomeLengthCm);
             float widthM = CmToM(corridorWidthCm);
             float wallHeightM = CmToM(wallHeightCm);
-            float wallThicknessM = 0.05f;
 
             Material blackMaterial = BuildSolidMaterial(Color.black);
             Material arrowMaterial = BuildSolidMaterial(Blue(outcomeStyle.blueIntensity));
 
-            CreatePrimitive(
-                PrimitiveType.Cube,
+            CreateFloorPlane(
                 $"{name}_Floor",
                 root.transform,
-                new Vector3(0.0f, -0.01f, lengthM * 0.5f),
-                new Vector3(widthM, 0.02f, lengthM),
+                -widthM * 0.5f,
+                widthM * 0.5f,
+                0.0f,
+                lengthM,
                 blackMaterial
             );
 
-            CreatePrimitive(
-                PrimitiveType.Cube,
+            CreateWallPlane(
                 $"{name}_Wall_Left",
                 root.transform,
-                new Vector3(-widthM * 0.5f, wallHeightM * 0.5f, lengthM * 0.5f),
-                new Vector3(wallThicknessM, wallHeightM, lengthM),
+                -widthM * 0.5f,
+                0.0f,
+                lengthM,
+                wallHeightM,
+                true,
                 blackMaterial
             );
 
-            CreatePrimitive(
-                PrimitiveType.Cube,
+            CreateWallPlane(
                 $"{name}_Wall_Right",
                 root.transform,
-                new Vector3(widthM * 0.5f, wallHeightM * 0.5f, lengthM * 0.5f),
-                new Vector3(wallThicknessM, wallHeightM, lengthM),
+                widthM * 0.5f,
+                0.0f,
+                lengthM,
+                wallHeightM,
+                false,
                 blackMaterial
             );
 
@@ -495,7 +509,7 @@ namespace LtmVr
                 widthM,
                 wallHeightM,
                 lengthM,
-                wallThicknessM,
+                0.0f,
                 arrowMaterial
             );
 
@@ -511,37 +525,109 @@ namespace LtmVr
             float widthM = CmToM(corridorWidthCm);
             Material blackMaterial = BuildSolidMaterial(Color.black);
 
-            CreatePrimitive(
-                PrimitiveType.Cube,
+            CreateFloorPlane(
                 "Scene_ITI_Floor",
                 root.transform,
-                new Vector3(0.0f, -0.01f, lengthM * 0.5f),
-                new Vector3(widthM, 0.02f, lengthM),
+                -widthM * 0.5f,
+                widthM * 0.5f,
+                0.0f,
+                lengthM,
                 blackMaterial
             );
 
             return root.transform;
         }
 
-        private void CreatePrimitive(
-            PrimitiveType primitiveType,
+        private void CreateWallPlane(
             string objectName,
             Transform parent,
-            Vector3 localPosition,
-            Vector3 localScale,
+            float x,
+            float startZM,
+            float endZM,
+            float wallHeightM,
+            bool leftWall,
             Material material)
         {
-            GameObject go = GameObject.CreatePrimitive(primitiveType);
-            go.name = objectName;
-            go.transform.SetParent(parent, false);
-            go.transform.localPosition = localPosition;
-            go.transform.localScale = localScale;
+            Vector3 bottomStart = new Vector3(x, 0.0f, startZM);
+            Vector3 bottomEnd = new Vector3(x, 0.0f, endZM);
+            Vector3 topEnd = new Vector3(x, wallHeightM, endZM);
+            Vector3 topStart = new Vector3(x, wallHeightM, startZM);
+            Vector3 inwardNormal = leftWall ? Vector3.right : Vector3.left;
+            int[] triangles = leftWall
+                ? new[] { 0, 2, 1, 0, 3, 2 }
+                : new[] { 0, 1, 2, 0, 2, 3 };
 
-            Renderer renderer = go.GetComponent<Renderer>();
-            if (renderer != null)
+            CreateQuadMesh(
+                objectName,
+                parent,
+                new[] { bottomStart, bottomEnd, topEnd, topStart },
+                new[] {
+                    new Vector2(0.0f, 0.0f),
+                    new Vector2(1.0f, 0.0f),
+                    new Vector2(1.0f, 1.0f),
+                    new Vector2(0.0f, 1.0f),
+                },
+                triangles,
+                inwardNormal,
+                material
+            );
+        }
+
+        private void CreateFloorPlane(
+            string objectName,
+            Transform parent,
+            float leftXM,
+            float rightXM,
+            float startZM,
+            float endZM,
+            Material material)
+        {
+            Vector3 leftStart = new Vector3(leftXM, 0.0f, startZM);
+            Vector3 rightStart = new Vector3(rightXM, 0.0f, startZM);
+            Vector3 rightEnd = new Vector3(rightXM, 0.0f, endZM);
+            Vector3 leftEnd = new Vector3(leftXM, 0.0f, endZM);
+
+            CreateQuadMesh(
+                objectName,
+                parent,
+                new[] { leftStart, rightStart, rightEnd, leftEnd },
+                new[] {
+                    new Vector2(0.0f, 0.0f),
+                    new Vector2(0.0f, 1.0f),
+                    new Vector2(1.0f, 1.0f),
+                    new Vector2(1.0f, 0.0f),
+                },
+                new[] { 0, 2, 1, 0, 3, 2 },
+                Vector3.up,
+                material
+            );
+        }
+
+        private void CreateQuadMesh(
+            string objectName,
+            Transform parent,
+            Vector3[] vertices,
+            Vector2[] uvs,
+            int[] triangles,
+            Vector3 normal,
+            Material material)
+        {
+            Mesh mesh = new Mesh
             {
-                renderer.sharedMaterial = material;
-            }
+                name = objectName,
+                hideFlags = HideFlags.DontSave,
+            };
+            mesh.vertices = vertices;
+            mesh.uv = uvs;
+            mesh.triangles = triangles;
+            mesh.normals = new[] { normal, normal, normal, normal };
+            mesh.RecalculateBounds();
+            _generatedMeshes.Add(mesh);
+
+            GameObject go = new GameObject(objectName);
+            go.transform.SetParent(parent, false);
+            go.AddComponent<MeshFilter>().sharedMesh = mesh;
+            go.AddComponent<MeshRenderer>().sharedMaterial = material;
         }
 
         private void AddOutcomeArrowheads(
@@ -641,7 +727,16 @@ namespace LtmVr
 
         private Material BuildPatternMaterial(ContextStyle style, float lengthM, float wallHeightM)
         {
-            Texture2D texture = BuildPatternTexture(style);
+            return BuildPatternMaterial(style, lengthM, wallHeightM, 1.0f);
+        }
+
+        private Material BuildPatternMaterial(
+            ContextStyle style,
+            float lengthM,
+            float wallHeightM,
+            float brightnessScale)
+        {
+            Texture2D texture = BuildPatternTexture(style, brightnessScale);
             float featureSizeM = Mathf.Max(0.01f, CmToM(style.patternScaleCm));
             float tileSizeM = style.wallPattern == ContextWallPattern.Checkerboard
                 ? featureSizeM * 2.0f
@@ -652,7 +747,8 @@ namespace LtmVr
                 Mathf.Max(1.0f, wallHeightM / tileSizeM)
             );
 
-            return BuildMaterial(Blue(style.blueIntensity), texture, textureScale);
+            float materialIntensity = Mathf.Clamp01(style.blueIntensity * brightnessScale);
+            return BuildMaterial(Blue(materialIntensity), texture, textureScale);
         }
 
         private Material BuildMaterial(Color color, Texture2D texture, Vector2 textureScale)
@@ -686,7 +782,7 @@ namespace LtmVr
             SetFloatIfPresent(material, "_Smoothness", 0.0f);
         }
 
-        private Texture2D BuildPatternTexture(ContextStyle style)
+        private Texture2D BuildPatternTexture(ContextStyle style, float brightnessScale = 1.0f)
         {
             int size = Mathf.Clamp(patternTexturePixels, 16, 1024);
             Texture2D texture = new Texture2D(size, size, TextureFormat.RGBA32, false)
@@ -708,7 +804,8 @@ namespace LtmVr
                 {
                     float u = (x + 0.5f) / size;
                     float intensity = PatternBlueIntensity(style, u, v)
-                        * Mathf.Clamp01(style.blueIntensity);
+                        * Mathf.Clamp01(style.blueIntensity)
+                        * Mathf.Clamp01(brightnessScale);
                     pixels[y * size + x] = Blue(intensity);
                 }
             }

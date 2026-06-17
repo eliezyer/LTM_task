@@ -6,7 +6,7 @@ This folder contains sample Unity C# scripts for the rendering computer.
 
 - `Assets/Scripts/VrUdpPacket.cs`: Parses 16-byte UDP packets from RPi5
 - `Assets/Scripts/VrUdpReceiver.cs`: Background UDP listener (port 5005 by default)
-- `Assets/Scripts/VrContextGenerator.cs`: Procedurally builds opening + 3 context scenes + outcome + ITI scene, plus connected habituation tracks, with blue-on-black wall textures
+- `Assets/Scripts/VrContextGenerator.cs`: Procedurally builds opening + 3 context scenes + outcome + ITI scene, plus connected habituation tracks, with blue-on-black inward-facing mesh walls
 - `Assets/Scripts/VrRenderController.cs`: Activates scene + updates rig position from latest packet
 
 ## Packet Contract
@@ -45,5 +45,7 @@ This folder contains sample Unity C# scripts for the rendering computer.
   is already visible at the end of the opening corridor, and `scene_id` selects
   which room/cue style is next. The room length follows `context_len_cm`, not
   `outcome_len_cm`.
+- Corridor walls and floors are single-sided generated mesh planes facing into
+  the corridor. Context floors reuse the wall pattern at lower brightness.
 - The context generator creates its own runtime materials and procedural textures. Leave `Material Template` empty and keep `Use Material Template Shader` off unless you have a known-good unlit shader for your render pipeline.
 - Default scene cues are all blue on black: opening low-spatial smudges, context 1 vertical gratings, context 2 checkerboard, context 3 polka dots, and outcome arrowheads pointing down the corridor.
