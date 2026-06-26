@@ -418,13 +418,10 @@ namespace LtmVr
             float widthM = CmToM(corridorWidthCm);
             float wallHeightM = CmToM(wallHeightCm);
 
-            Material wallMaterial = BuildPatternMaterial(style, lengthM, wallHeightM);
-            Material floorMaterial = BuildPatternMaterial(
-                style,
-                lengthM,
-                widthM,
-                FloorPatternBrightness
-            );
+            Material wallMaterial = BuildPatternMaterial(style);
+            Material floorMaterial = BuildPatternMaterial(style, FloorPatternBrightness);
+            Vector2 wallUvScale = GetPatternUvScale(style, lengthM, wallHeightM);
+            Vector2 floorUvScale = GetPatternUvScale(style, lengthM, widthM);
 
             CreateFloorPlane(
                 $"{name}_Floor",
@@ -433,7 +430,8 @@ namespace LtmVr
                 widthM * 0.5f,
                 startZM,
                 startZM + lengthM,
-                floorMaterial
+                floorMaterial,
+                floorUvScale
             );
 
             CreateWallPlane(
@@ -444,7 +442,8 @@ namespace LtmVr
                 startZM + lengthM,
                 wallHeightM,
                 true,
-                wallMaterial
+                wallMaterial,
+                wallUvScale
             );
 
             CreateWallPlane(
@@ -455,7 +454,8 @@ namespace LtmVr
                 startZM + lengthM,
                 wallHeightM,
                 false,
-                wallMaterial
+                wallMaterial,
+                wallUvScale
             );
         }
 
@@ -471,6 +471,8 @@ namespace LtmVr
 
             Material blackMaterial = BuildSolidMaterial(Color.black);
             Material arrowMaterial = BuildSolidMaterial(Blue(outcomeStyle.blueIntensity));
+            Vector2 wallUvScale = GetPatternUvScale(outcomeStyle, lengthM, wallHeightM);
+            Vector2 floorUvScale = GetPatternUvScale(outcomeStyle, lengthM, widthM);
 
             CreateFloorPlane(
                 $"{name}_Floor",
@@ -479,7 +481,8 @@ namespace LtmVr
                 widthM * 0.5f,
                 0.0f,
                 lengthM,
-                blackMaterial
+                blackMaterial,
+                floorUvScale
             );
 
             CreateWallPlane(
@@ -490,7 +493,8 @@ namespace LtmVr
                 lengthM,
                 wallHeightM,
                 true,
-                blackMaterial
+                blackMaterial,
+                wallUvScale
             );
 
             CreateWallPlane(
@@ -501,7 +505,8 @@ namespace LtmVr
                 lengthM,
                 wallHeightM,
                 false,
-                blackMaterial
+                blackMaterial,
+                wallUvScale
             );
 
             AddOutcomeArrowheads(
@@ -532,7 +537,8 @@ namespace LtmVr
                 widthM * 0.5f,
                 0.0f,
                 lengthM,
-                blackMaterial
+                blackMaterial,
+                Vector2.one
             );
 
             return root.transform;
@@ -546,7 +552,8 @@ namespace LtmVr
             float endZM,
             float wallHeightM,
             bool leftWall,
-            Material material)
+            Material material,
+            Vector2 uvScale)
         {
             Vector3 bottomStart = new Vector3(x, 0.0f, startZM);
             Vector3 bottomEnd = new Vector3(x, 0.0f, endZM);
@@ -563,9 +570,9 @@ namespace LtmVr
                 new[] { bottomStart, bottomEnd, topEnd, topStart },
                 new[] {
                     new Vector2(0.0f, 0.0f),
-                    new Vector2(1.0f, 0.0f),
-                    new Vector2(1.0f, 1.0f),
-                    new Vector2(0.0f, 1.0f),
+                    new Vector2(uvScale.x, 0.0f),
+                    new Vector2(uvScale.x, uvScale.y),
+                    new Vector2(0.0f, uvScale.y),
                 },
                 triangles,
                 inwardNormal,
@@ -580,7 +587,8 @@ namespace LtmVr
             float rightXM,
             float startZM,
             float endZM,
-            Material material)
+            Material material,
+            Vector2 uvScale)
         {
             Vector3 leftStart = new Vector3(leftXM, 0.0f, startZM);
             Vector3 rightStart = new Vector3(rightXM, 0.0f, startZM);
@@ -593,9 +601,9 @@ namespace LtmVr
                 new[] { leftStart, rightStart, rightEnd, leftEnd },
                 new[] {
                     new Vector2(0.0f, 0.0f),
-                    new Vector2(0.0f, 1.0f),
-                    new Vector2(1.0f, 1.0f),
-                    new Vector2(1.0f, 0.0f),
+                    new Vector2(0.0f, uvScale.y),
+                    new Vector2(uvScale.x, uvScale.y),
+                    new Vector2(uvScale.x, 0.0f),
                 },
                 new[] { 0, 2, 1, 0, 3, 2 },
                 Vector3.up,
@@ -725,30 +733,34 @@ namespace LtmVr
             return BuildMaterial(color, texture, Vector2.one);
         }
 
-        private Material BuildPatternMaterial(ContextStyle style, float lengthM, float wallHeightM)
+        private Material BuildPatternMaterial(ContextStyle style)
         {
-            return BuildPatternMaterial(style, lengthM, wallHeightM, 1.0f);
+            return BuildPatternMaterial(style, 1.0f);
         }
 
         private Material BuildPatternMaterial(
             ContextStyle style,
-            float lengthM,
-            float wallHeightM,
             float brightnessScale)
         {
             Texture2D texture = BuildPatternTexture(style, brightnessScale);
+            float materialIntensity = Mathf.Clamp01(style.blueIntensity * brightnessScale);
+            return BuildMaterial(Blue(materialIntensity), texture, Vector2.one);
+        }
+
+        private static Vector2 GetPatternUvScale(
+            ContextStyle style,
+            float lengthM,
+            float crossAxisM)
+        {
             float featureSizeM = Mathf.Max(0.01f, CmToM(style.patternScaleCm));
             float tileSizeM = style.wallPattern == ContextWallPattern.Checkerboard
                 ? featureSizeM * 2.0f
                 : featureSizeM;
 
-            Vector2 textureScale = new Vector2(
-                Mathf.Max(1.0f, lengthM / tileSizeM),
-                Mathf.Max(1.0f, wallHeightM / tileSizeM)
+            return new Vector2(
+                Mathf.Max(0.001f, lengthM / tileSizeM),
+                Mathf.Max(0.001f, crossAxisM / tileSizeM)
             );
-
-            float materialIntensity = Mathf.Clamp01(style.blueIntensity * brightnessScale);
-            return BuildMaterial(Blue(materialIntensity), texture, textureScale);
         }
 
         private Material BuildMaterial(Color color, Texture2D texture, Vector2 textureScale)

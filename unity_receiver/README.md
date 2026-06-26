@@ -47,5 +47,8 @@ This folder contains sample Unity C# scripts for the rendering computer.
   `outcome_len_cm`.
 - Corridor walls and floors are single-sided generated mesh planes facing into
   the corridor. Context floors reuse the wall pattern at lower brightness.
+- Pattern UVs are based on physical centimeters, so increasing opening,
+  context, or outcome corridor length adds repeated tiles instead of stretching
+  the existing pattern.
 - The context generator creates its own runtime materials and procedural textures. Leave `Material Template` empty and keep `Use Material Template Shader` off unless you have a known-good unlit shader for your render pipeline.
 - Default scene cues are all blue on black: opening low-spatial smudges, context 1 vertical gratings, context 2 checkerboard, context 3 polka dots, and outcome arrowheads pointing down the corridor.
